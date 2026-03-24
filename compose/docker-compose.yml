@@ -1,13 +1,12 @@
 # =============================================================================
 # SolDevelo Reporting Stack - Base Platform Services
 # =============================================================================
-# Step 1: Kafka (KRaft) + Kafka Connect + Apicurio Registry + Kafka UI
-#
 # Image choices (long-term, do not change without discussion):
 #   Kafka:         soldevelo/kafka 3.7  (KRaft mode, no ZooKeeper)
 #   Kafka Connect: confluentinc/cp-kafka-connect 7.7.1 (Kafka 3.7.x compatible)
 #   Apicurio:      apicurio/apicurio-registry 3.0 (in-memory storage, upgrade later)
 #   Kafka UI:      provectuslabs/kafka-ui 0.7.2
+#   ClickHouse:    clickhouse/clickhouse-server 24.8-alpine
 
 name: soldevelo-reporting-stack
 
@@ -23,6 +22,7 @@ networks:
 
 volumes:
   kafka_data:
+  clickhouse_data:
 
 services:
   # ---------------------------------------------------------------------------
@@ -149,3 +149,34 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # ClickHouse (OLAP analytics store)
+  #
+  # Two databases: raw (append-only CDC landing) and curated (dbt marts).
+  # Kafka engine tables consume JSON CDC events directly from Kafka topics.
+  # ---------------------------------------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    hostname: clickhouse
+    networks:
+      - reporting
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${CLICKHOUSE_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ../clickhouse/config/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+    environment:
+      CLICKHOUSE_DB: "${CLICKHOUSE_DB:-reporting}"
+      CLICKHOUSE_USER: "${CLICKHOUSE_USER:-default}"
+      CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-changeme}"
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user ${CLICKHOUSE_USER:-default} --password ${CLICKHOUSE_PASSWORD:-changeme} -q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s

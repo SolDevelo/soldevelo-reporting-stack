@@ -98,9 +98,11 @@ make reset              # stop and wipe all volumes
 | `reset` | Stop services and wipe all volumes |
 | `lint` | Run linters (placeholder) |
 | `verify` | Run verification checks (placeholder) |
+| `build` | Build/rebuild service images (or `SVC=<name>`) |
 | `register-connector` | Register/update the Debezium CDC connector |
 | `connector-status` | Show connector and task status |
 | `delete-connector` | Delete the CDC connector |
+| `clickhouse-init` | Initialize ClickHouse databases and raw landing tables |
 
 ## Step-by-step verification
 
@@ -208,7 +210,32 @@ Key and value serialization uses **Apicurio Registry Avro converters**. Schemas 
 
 The default allowlist (`SOURCE_PG_TABLE_ALLOWLIST` in `.env`) captures a small set of tables. Expand it as needed — the connector config is re-applied via `make register-connector`.
 
-### Steps 3–8 (not yet implemented)
+### Step 3 — ClickHouse raw landing
+
+Initialize ClickHouse databases and create raw landing tables for CDC topics:
+
+```bash
+make clickhouse-init
+```
+
+This creates for each CDC topic:
+- `raw.kafka_<topic>` — Kafka engine table (consumer)
+- `raw.events_<topic>` — MergeTree storage table (append-only landing, 90-day TTL)
+- `raw.mv_<topic>` — Materialized View routing Kafka → MergeTree
+
+Verify data is flowing:
+
+```bash
+make step3
+```
+
+Service UIs:
+
+| Service | Default URL |
+|---|---|
+| ClickHouse HTTP | http://localhost:8123 |
+
+### Steps 4–8 (not yet implemented)
 
 See the [implementation plan](docs/implementation-plan.md) for detailed task specifications.
 
@@ -218,7 +245,7 @@ See the [implementation plan](docs/implementation-plan.md) for detailed task spe
 |---|---|
 | 0–2. Base platform + Debezium CDC | Complete |
 | 2.5. Folder restructure for platform + packages model | Complete |
-| 3. ClickHouse + raw landing ingestion | Planned |
+| 3. ClickHouse + raw landing ingestion | Complete |
 | 4. dbt transformations | Planned |
 | 5. Airflow orchestration | Planned |
 | 6. Superset + assets-as-code | Planned |

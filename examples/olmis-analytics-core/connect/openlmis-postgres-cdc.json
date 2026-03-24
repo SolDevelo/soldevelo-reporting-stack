@@ -18,15 +18,11 @@
 
     "table.include.list": "${SOURCE_PG_TABLE_ALLOWLIST}",
 
-    "key.converter": "io.apicurio.registry.utils.converter.AvroConverter",
-    "key.converter.apicurio.registry.url": "http://apicurio:8080/apis/registry/v2",
-    "key.converter.apicurio.registry.auto-register": "true",
-    "key.converter.apicurio.registry.find-latest": "true",
-
-    "value.converter": "io.apicurio.registry.utils.converter.AvroConverter",
-    "value.converter.apicurio.registry.url": "http://apicurio:8080/apis/registry/v2",
-    "value.converter.apicurio.registry.auto-register": "true",
-    "value.converter.apicurio.registry.find-latest": "true",
+    "_comment.converters": "JSON converters chosen for ClickHouse compatibility. ClickHouse Kafka engine has documented issues with Apicurio AvroConfluent (wrong magic number, endpoint path mismatch). JSON is simpler, human-readable in Kafka UI, and natively supported by ClickHouse. Apicurio remains available for schema governance if other consumers need Avro.",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
 
     "_comment.decimal_handling": "double is lossy for financial NUMERIC columns but ClickHouse has no native NUMERIC type. Use 'precise' (string) if exact decimal fidelity is required downstream.",
     "decimal.handling.mode": "double",

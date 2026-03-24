@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build lint verify step1 step2 register-connector connector-status delete-connector
+.PHONY: up down ps logs restart reset build lint verify step1 step2 step3 clickhouse-init register-connector connector-status delete-connector
 
 up: ## Start all services
 	$(COMPOSE_CMD) up -d
@@ -35,6 +35,12 @@ step1: ## Verify Step 1: base platform services
 
 step2: ## Verify Step 2: Debezium CDC connector
 	@bash scripts/verify/step2.sh
+
+step3: ## Verify Step 3: ClickHouse raw landing ingestion
+	@bash scripts/verify/step3.sh
+
+clickhouse-init: ## Initialize ClickHouse databases and raw landing tables
+	@bash scripts/clickhouse/init.sh
 
 register-connector: ## Register the Debezium CDC connector
 	@bash scripts/connect/register-connector.sh

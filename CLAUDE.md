@@ -30,9 +30,9 @@ make connector-status     # show connector + task status
 make delete-connector     # remove connector
 
 # Verification (sequential)
-make step1       # verify Kafka, Connect, Apicurio, Kafka UI health
-make step2       # verify Debezium connector + CDC topics exist
-make step3       # verify ClickHouse raw landing has data
+make verify-services    # Kafka, Connect, Apicurio, Kafka UI health
+make verify-cdc         # Debezium connector + CDC topics exist
+make verify-ingestion   # ClickHouse raw landing has data
 
 # ClickHouse
 make clickhouse-init   # create/update raw landing tables (idempotent)
@@ -105,7 +105,7 @@ make up
 make setup
 
 # 3. Verify (already run by make setup, but can re-run)
-make step1 && make step2 && make step3
+make verify-services && make verify-cdc && make verify-ingestion
 ```
 
 Networking: the `reporting-shared` Docker network is created by the ref-distro overlay. The reporting stack's `kafka-connect` joins it as external. The DB is accessible as `olmis-db` on this network.

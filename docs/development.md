@@ -1,18 +1,22 @@
 # Development Guide
 
-This guide covers step-by-step verification, debugging, and the developer workflow for contributing to the reporting-stack platform.
+This guide covers verification, debugging, and the developer workflow for contributing to the reporting-stack platform.
 
-## Verification steps
+## Verification targets
 
-Each step has a corresponding `make stepN` target. Run them sequentially — each depends on the previous.
+Each target verifies a specific layer. Run them in order — each depends on the previous.
 
-### Step 1 — Base platform services
+| Target | What it checks |
+|---|---|
+| `make verify-services` | Kafka, Kafka Connect, Apicurio, Kafka UI are healthy |
+| `make verify-cdc` | Debezium connector is RUNNING, CDC topics exist |
+| `make verify-ingestion` | ClickHouse databases exist, events tables have rows |
 
-Verifies Kafka, Kafka Connect, Apicurio Registry, and Kafka UI are healthy.
+Or run all at once via `make setup` (idempotent — also re-registers the connector and re-inits ClickHouse).
 
-```bash
-make step1
-```
+### verify-services
+
+Checks each platform service is reachable via HTTP health endpoints.
 
 Manual checks:
 
@@ -31,13 +35,9 @@ curl -s http://localhost:${APICURIO_PORT:-8085}/health
 curl -s http://localhost:${KAFKA_UI_PORT:-9080}/ | head -5
 ```
 
-### Step 2 — Debezium CDC connector
+### verify-cdc
 
-Verifies the connector is RUNNING and CDC topics exist in Kafka.
-
-```bash
-make step2
-```
+Checks the Debezium connector is RUNNING and at least one CDC topic exists.
 
 Connector management:
 
@@ -62,15 +62,9 @@ The default allowlist (`SOURCE_PG_TABLE_ALLOWLIST` in `.env`) captures a small s
 3. Re-register: `make register-connector`
 4. Re-init ClickHouse: `make clickhouse-init`
 
-### Step 3 — ClickHouse raw landing
+### verify-ingestion
 
-Verifies ClickHouse databases exist and events tables have rows.
-
-```bash
-make step3
-```
-
-This runs `clickhouse-init` (idempotent) then checks each `raw.events_*` table for row counts.
+Runs `clickhouse-init` (idempotent), then checks each `raw.events_*` table for row counts.
 
 Manual ClickHouse queries:
 
@@ -102,7 +96,7 @@ See [source-db-setup.md](source-db-setup.md) for configuring the adopter's Postg
 2. `make build` to rebuild any modified Docker images
 3. `make up` to apply compose changes
 4. `make setup` to re-configure (idempotent)
-5. Run the relevant `make stepN` to verify
+5. Run the relevant `make verify-*` to verify
 
 ## Implementation plan
 

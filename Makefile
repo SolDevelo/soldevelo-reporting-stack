@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup lint verify step1 step2 step3 clickhouse-init register-connector connector-status delete-connector
+.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion clickhouse-init register-connector connector-status delete-connector
 
 up: ## Start all services
 	$(COMPOSE_CMD) up -d
@@ -27,20 +27,14 @@ build: ## Build/rebuild service images (or SVC=<name>)
 setup: ## Configure platform: register connector + init ClickHouse + verify
 	@bash scripts/setup.sh
 
-lint: ## Run linters (placeholder)
-	@echo "lint: no linters configured yet"
+verify-services: ## Verify platform services are healthy (Kafka, Connect, Apicurio, Kafka UI, ClickHouse)
+	@bash scripts/verify/services.sh
 
-verify: ## Run verification checks (placeholder)
-	@echo "verify: no checks configured yet"
+verify-cdc: ## Verify Debezium CDC connector is running and topics exist
+	@bash scripts/verify/cdc.sh
 
-step1: ## Verify Step 1: base platform services
-	@bash scripts/verify/step1.sh
-
-step2: ## Verify Step 2: Debezium CDC connector
-	@bash scripts/verify/step2.sh
-
-step3: ## Verify Step 3: ClickHouse raw landing ingestion
-	@bash scripts/verify/step3.sh
+verify-ingestion: ## Verify ClickHouse raw landing tables have data
+	@bash scripts/verify/ingestion.sh
 
 clickhouse-init: ## Initialize ClickHouse databases and raw landing tables
 	@bash scripts/clickhouse/init.sh

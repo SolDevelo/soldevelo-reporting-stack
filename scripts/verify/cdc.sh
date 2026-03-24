@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Step 2 Verification: Debezium PostgreSQL CDC connector
+# Verify Debezium CDC connector.
 # Checks that the connector is RUNNING and at least one CDC topic exists.
 # =============================================================================
 set -euo pipefail
@@ -30,7 +30,7 @@ check() {
   fi
 }
 
-echo "Step 2: Debezium PostgreSQL CDC"
+echo "Verify: CDC connector"
 echo "-------------------------------"
 
 # --- Check 1: connector exists and is RUNNING ---

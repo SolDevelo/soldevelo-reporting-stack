@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Step 1 Verification: Base platform services
+# Verify platform services are healthy.
 # Checks that Kafka, Kafka Connect, Apicurio, and Kafka UI are reachable.
 # =============================================================================
 set -euo pipefail
@@ -33,7 +33,7 @@ check() {
   fi
 }
 
-echo "Step 1: Base platform services"
+echo "Verify: Platform services"
 echo "-------------------------------"
 
 check "Kafka broker (external listener)" \

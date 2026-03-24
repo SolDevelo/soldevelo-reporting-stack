@@ -63,14 +63,14 @@ This single command:
 - Creates ClickHouse databases and raw landing tables
 - Verifies the full pipeline is working
 
-### 4. Verify
+### Troubleshooting
 
-After setup completes, you should see all checks passing. You can re-run verification at any time:
+If `make setup` fails, run verification individually to find which layer is broken:
 
 ```bash
-make step1    # platform services healthy
-make step2    # CDC connector running + topics exist
-make step3    # ClickHouse tables populated with data
+make verify-services    # Kafka, Connect, Apicurio, Kafka UI
+make verify-cdc         # Debezium connector + CDC topics
+make verify-ingestion   # ClickHouse raw landing tables
 ```
 
 ## Service UIs

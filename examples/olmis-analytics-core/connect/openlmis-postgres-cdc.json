@@ -1,0 +1,40 @@
+{
+  "name": "openlmis-postgres-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+
+    "database.hostname": "${SOURCE_PG_HOST}",
+    "database.port": "${SOURCE_PG_PORT}",
+    "database.dbname": "${SOURCE_PG_DB}",
+    "database.user": "${SOURCE_PG_USER}",
+    "database.password": "${SOURCE_PG_PASSWORD}",
+
+    "topic.prefix": "${DEBEZIUM_TOPIC_PREFIX}",
+
+    "plugin.name": "pgoutput",
+    "slot.name": "${SOURCE_PG_SLOT_NAME}",
+    "publication.name": "${SOURCE_PG_PUBLICATION}",
+
+    "table.include.list": "${SOURCE_PG_TABLE_ALLOWLIST}",
+
+    "key.converter": "io.apicurio.registry.utils.converter.AvroConverter",
+    "key.converter.apicurio.registry.url": "http://apicurio:8080/apis/registry/v2",
+    "key.converter.apicurio.registry.auto-register": "true",
+    "key.converter.apicurio.registry.find-latest": "true",
+
+    "value.converter": "io.apicurio.registry.utils.converter.AvroConverter",
+    "value.converter.apicurio.registry.url": "http://apicurio:8080/apis/registry/v2",
+    "value.converter.apicurio.registry.auto-register": "true",
+    "value.converter.apicurio.registry.find-latest": "true",
+
+    "_comment.decimal_handling": "double is lossy for financial NUMERIC columns but ClickHouse has no native NUMERIC type. Use 'precise' (string) if exact decimal fidelity is required downstream.",
+    "decimal.handling.mode": "double",
+    "time.precision.mode": "connect",
+    "tombstones.on.delete": "true",
+    "snapshot.mode": "initial",
+
+    "heartbeat.interval.ms": "10000",
+    "heartbeat.action.query": "INSERT INTO public.reporting_heartbeat (ts) VALUES (NOW()) ON CONFLICT (id) DO UPDATE SET ts = NOW()"
+  }
+}

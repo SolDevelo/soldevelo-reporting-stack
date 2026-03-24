@@ -1,0 +1,10 @@
+name: olmis-analytics-core
+type: core
+description: >
+  Reference analytics-core package for OpenLMIS/OLMIS.
+  Provides Debezium connector config, dbt models/tests, and Superset assets
+  for baseline reporting on the OpenLMIS database.
+includes:
+  - connect
+  - dbt
+  - superset

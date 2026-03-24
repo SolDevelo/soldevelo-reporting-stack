@@ -1,0 +1,43 @@
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python / Airflow / dbt
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+airflow/logs/
+airflow/plugins/__pycache__/
+
+# Superset
+superset/superset_home/
+
+# ClickHouse data (local dev volumes)
+clickhouse/data/
+
+# Docker
+docker-compose.override.yml
+
+# Node (if any tooling uses it)
+node_modules/
+
+# Misc
+*.log
+*.bak
+*.tmp

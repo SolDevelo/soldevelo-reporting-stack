@@ -1,0 +1,151 @@
+# =============================================================================
+# SolDevelo Reporting Stack - Base Platform Services
+# =============================================================================
+# Step 1: Kafka (KRaft) + Kafka Connect + Apicurio Registry + Kafka UI
+#
+# Image choices (long-term, do not change without discussion):
+#   Kafka:         soldevelo/kafka 3.7  (KRaft mode, no ZooKeeper)
+#   Kafka Connect: confluentinc/cp-kafka-connect 7.7.1 (Kafka 3.7.x compatible)
+#   Apicurio:      apicurio/apicurio-registry 3.0 (in-memory storage, upgrade later)
+#   Kafka UI:      provectuslabs/kafka-ui 0.7.2
+
+name: soldevelo-reporting-stack
+
+networks:
+  reporting:
+    driver: bridge
+  # External network shared with the source database stack (e.g., openlmis-ref-distro).
+  # Created automatically by the ref-distro reporting-stack overlay compose file.
+  # The source DB is accessible as 'olmis-db' on this network.
+  reporting-shared:
+    name: reporting-shared
+    external: true
+
+volumes:
+  kafka_data:
+
+services:
+  # ---------------------------------------------------------------------------
+  # Kafka broker – KRaft mode (single node)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: soldevelo/kafka:3.7
+    hostname: kafka
+    networks:
+      - reporting
+    ports:
+      - "${KAFKA_EXTERNAL_PORT:-9094}:9094"
+    volumes:
+      - kafka_data:/soldevelo/kafka
+    environment:
+      # KRaft
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_KRAFT_CLUSTER_ID: "soldevelo-reporting-stack"
+      # Listeners
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:${KAFKA_EXTERNAL_PORT:-9094}"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      # Topic defaults (single-node)
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q ApiVersion"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Kafka Connect (distributed mode) + Debezium + Apicurio converters
+  #
+  # Built from connect/Dockerfile which adds:
+  #   - Debezium PostgreSQL connector plugin
+  #   - Apicurio Registry Avro converter JARs
+  # ---------------------------------------------------------------------------
+  kafka-connect:
+    build:
+      context: ../connect
+      dockerfile: Dockerfile
+    image: soldevelo-reporting-stack/kafka-connect:latest
+    hostname: kafka-connect
+    networks:
+      - reporting
+      - reporting-shared
+    depends_on:
+      kafka:
+        condition: service_healthy
+      apicurio:
+        condition: service_healthy
+    ports:
+      - "${CONNECT_PORT:-8083}:8083"
+    environment:
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:9092"
+      CONNECT_GROUP_ID: "reporting-stack-connect"
+      CONNECT_CONFIG_STORAGE_TOPIC: "_connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "_connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "_connect-status"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "kafka-connect"
+      CONNECT_REST_PORT: "8083"
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # Apicurio Schema Registry
+  # ---------------------------------------------------------------------------
+  apicurio:
+    image: apicurio/apicurio-registry:3.0.6
+    hostname: apicurio
+    networks:
+      - reporting
+    ports:
+      - "${APICURIO_PORT:-8085}:8080"
+    environment:
+      QUARKUS_HTTP_PORT: "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Kafka UI (Provectus)
+  # ---------------------------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    hostname: kafka-ui
+    networks:
+      - reporting
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${KAFKA_UI_PORT:-9080}:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "reporting-stack"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: "connect"
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: "http://kafka-connect:8083"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://apicurio:8080/apis/ccompat/v7"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s

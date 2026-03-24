@@ -1,0 +1,9 @@
+name: olmis-analytics-malawi
+type: extension
+description: >
+  Reference analytics-extension package for OpenLMIS Malawi.
+  Adds country-specific dbt marts and Superset dashboards
+  on top of olmis-analytics-core.
+includes:
+  - dbt
+  - superset

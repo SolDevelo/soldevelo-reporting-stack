@@ -110,4 +110,4 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 
 ## Implementation Status
 
-Tasks 0–2 (base platform + Debezium CDC) are complete. The full implementation plan (Tasks 2.5–10) is documented in `README.md` under "Implementation plan". Tasks 2.5–8 are MVP scope; Tasks 9–10 are post-MVP.
+Tasks 0–2.5 (base platform + Debezium CDC + folder restructure) are complete. The full implementation plan (Tasks 3–10) is documented in `docs/implementation-plan.md`. Tasks 3–8 are MVP scope; Tasks 9–10 are post-MVP.

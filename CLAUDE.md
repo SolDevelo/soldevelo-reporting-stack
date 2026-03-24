@@ -6,31 +6,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a reusable, open-source reporting platform ("reporting-stack") maintained by SolDevelo. It connects to any adopter's PostgreSQL database via CDC and delivers analytics through: Debezium → Kafka → ClickHouse → dbt → Airflow → Superset. The platform is project-agnostic; OpenLMIS/OLMIS is the first reference adopter.
 
-The key architectural separation: this repo is the **platform** (infrastructure + runtime + generic tooling). Adopters provide domain-specific logic via **analytics packages** (core + optional extensions). Architecture principles and design rationale are documented in the README.
+The key architectural separation: this repo is the **platform** (infrastructure + runtime + generic tooling). Adopters provide domain-specific logic via **analytics packages** (core + optional extensions). Architecture principles and design rationale are in `docs/architecture.md`.
 
 ## Common Commands
 
 ```bash
-# Start/stop all services
-make up          # docker compose up -d
-make down        # docker compose down
+# Start/stop
+make up          # start all services
+make down        # stop all services
 make reset       # stop + wipe all volumes
+
+# Setup (run after make up)
+make setup       # register connector + init ClickHouse + verify (idempotent)
 
 # Observe
 make ps          # running services
 make logs        # tail all logs (SVC=kafka to filter)
+make build       # rebuild Docker images
 
-# Debezium connector management
+# Connector management
 make register-connector   # create/update CDC connector
 make connector-status     # show connector + task status
 make delete-connector     # remove connector
 
-# Verification (sequential — step1 before step2)
+# Verification (sequential)
 make step1       # verify Kafka, Connect, Apicurio, Kafka UI health
 make step2       # verify Debezium connector + CDC topics exist
-```
+make step3       # verify ClickHouse raw landing has data
 
-`make lint` and `make verify` exist as placeholders but are not yet implemented.
+# ClickHouse
+make clickhouse-init   # create/update raw landing tables (idempotent)
+```
 
 ## Architecture
 
@@ -38,8 +44,7 @@ make step2       # verify Debezium connector + CDC topics exist
 Adopter PostgreSQL (external)
   └─▶ Debezium CDC (Kafka Connect plugin)
         └─▶ Kafka (KRaft, no ZooKeeper)
-              ├─▶ Apicurio Registry (Avro schema governance)
-              └─▶ ClickHouse (planned)
+              └─▶ ClickHouse
                     ├─▶ raw landing (append-only, for debug/replay/backfill)
                     └─▶ curated marts (BI contract — dashboards query only these)
                           ├─▶ dbt Core transformations (planned)
@@ -47,7 +52,7 @@ Adopter PostgreSQL (external)
                           └─▶ Superset / Power BI (planned)
 ```
 
-Key services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `apicurio`, `kafka-ui`. All have healthchecks. `kafka-connect` depends on both `kafka` and `apicurio` being healthy before starting.
+Services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `apicurio`, `kafka-ui`, `clickhouse`. All have healthchecks. `kafka-connect` depends on both `kafka` and `apicurio` being healthy before starting.
 
 ## Platform + Packages Model
 
@@ -97,17 +102,23 @@ docker compose -f docker-compose.yml -f docker-compose.reporting-stack.yml up -d
 cd ../openlmis-reporting
 cp .env.example .env  # set SOURCE_PG_HOST=olmis-db, SOURCE_PG_USER=postgres, SOURCE_PG_PASSWORD=p@ssw0rd
 make up
+make setup
 
-# 3. Verify
-make step1
-make register-connector
-make step2
+# 3. Verify (already run by make setup, but can re-run)
+make step1 && make step2 && make step3
 ```
 
 Networking: the `reporting-shared` Docker network is created by the ref-distro overlay. The reporting stack's `kafka-connect` joins it as external. The DB is accessible as `olmis-db` on this network.
 
 **Important:** `kafka-connect` needs `KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"` to avoid OOM when running alongside the full OLMIS stack (which consumes ~28GB RAM).
 
+## Documentation
+
+- `docs/architecture.md` — architecture principles, design rationale, package contract
+- `docs/development.md` — developer workflow, step-by-step verification, debugging
+- `docs/source-db-setup.md` — source database configuration, WAL safety, network setup
+- `docs/implementation-plan.md` — implementation task breakdown (Tasks 3–10)
+
 ## Implementation Status
 
-Tasks 0–2.5 (base platform + Debezium CDC + folder restructure) are complete. The full implementation plan (Tasks 3–10) is documented in `docs/implementation-plan.md`. Tasks 3–8 are MVP scope; Tasks 9–10 are post-MVP.
+Tasks 0–3 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing) are complete. The full implementation plan (Tasks 4–10) is documented in `docs/implementation-plan.md`. Tasks 4–8 are MVP scope; Tasks 9–10 are post-MVP.

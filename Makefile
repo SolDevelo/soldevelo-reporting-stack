@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build lint verify step1 step2 step3 clickhouse-init register-connector connector-status delete-connector
+.PHONY: up down ps logs restart reset build setup lint verify step1 step2 step3 clickhouse-init register-connector connector-status delete-connector
 
 up: ## Start all services
 	$(COMPOSE_CMD) up -d
@@ -23,6 +23,9 @@ reset: ## Stop services and wipe all volumes
 
 build: ## Build/rebuild service images (or SVC=<name>)
 	$(COMPOSE_CMD) build $(SVC)
+
+setup: ## Configure platform: register connector + init ClickHouse + verify
+	@bash scripts/setup.sh
 
 lint: ## Run linters (placeholder)
 	@echo "lint: no linters configured yet"

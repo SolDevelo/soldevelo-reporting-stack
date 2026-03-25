@@ -68,9 +68,10 @@ This single command:
 If `make setup` fails, run verification individually to find which layer is broken:
 
 ```bash
-make verify-services    # Kafka, Connect, Apicurio, Kafka UI
+make verify-services    # Kafka, Connect, Apicurio, Kafka UI, ClickHouse
 make verify-cdc         # Debezium connector + CDC topics
 make verify-ingestion   # ClickHouse raw landing tables
+make verify-dbt         # dbt build + curated mart tables
 ```
 
 ## Service UIs
@@ -90,6 +91,7 @@ make down        # stop all services
 make ps          # show running services
 make logs        # tail all logs (SVC=kafka to filter)
 make setup       # configure pipeline (idempotent, run after make up)
+make dbt-build   # run dbt transformations (builds curated marts)
 make reset       # stop and wipe all data volumes
 make build       # rebuild Docker images after changes
 ```
@@ -137,7 +139,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 | Base platform (Kafka, Connect, Apicurio, Kafka UI) | Complete |
 | Debezium CDC ingestion | Complete |
 | ClickHouse raw landing | Complete |
-| dbt transformations | Planned |
+| dbt transformations | Complete |
 | Airflow orchestration | Planned |
 | Superset + assets-as-code | Planned |
 | Package system formalization | Planned |

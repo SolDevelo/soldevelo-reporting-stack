@@ -42,12 +42,12 @@ Packages are loaded via local paths (development) or pinned Git refs (production
 
 ```
 Adopter PostgreSQL (external)
-  └─▶ Debezium CDC (Kafka Connect plugin)
-        └─▶ Kafka (KRaft, no ZooKeeper)
-              └─▶ ClickHouse
+  └─▶ Debezium CDC (Kafka Connect plugin)          ─┐
+        └─▶ Kafka (KRaft, no ZooKeeper)              │ real-time (seconds)
+              └─▶ ClickHouse                         ─┘
                     ├─▶ raw landing (append-only, for debug/replay/backfill)
                     └─▶ curated marts (BI contract — dashboards query only these)
-                          ├─▶ dbt Core transformations
+                          ├─▶ dbt Core transformations  ── scheduled (default: hourly)
                           │     └─▶ Airflow orchestration
                           └─▶ Superset / Power BI
 ```
@@ -76,3 +76,43 @@ dbt runs via Docker (`dbt/Dockerfile`) with dbt-core + dbt-clickhouse adapter. T
 Staging views handle CDC semantics: for each primary key, they select the latest event by `ts_ms` and `_ingested_at`, excluding deletes (`op != 'd'`). This deterministic logic correctly handles initial snapshots, incremental changes, and replay scenarios.
 
 **Error handling:** Kafka Engine tables use `kafka_handle_error_mode = 'stream'`. Malformed messages are filtered out by the Materialized View (`WHERE length(_error) = 0`) and silently skipped — there is no DLQ. See [development.md](development.md#error-handling) for diagnostics.
+
+## Data freshness and refresh latency
+
+Understanding how quickly a change in the source database appears on a dashboard requires understanding the latency at each layer:
+
+| Layer | Latency | What happens |
+|---|---|---|
+| **CDC capture** (Debezium) | Seconds | Change is captured from PostgreSQL WAL and published to Kafka |
+| **Raw landing** (ClickHouse Kafka Engine) | Seconds | Kafka message is consumed and stored in `raw.events_*` tables |
+| **Curated marts** (dbt via Airflow) | **Depends on schedule** | dbt rebuilds mart tables from raw events. Only runs when Airflow triggers it |
+| **Dashboards** (Superset / Power BI) | Depends on cache settings | BI tool queries the curated mart. May serve cached results |
+
+The first two layers are near-real-time — a database change reaches ClickHouse's raw landing within seconds. The bottleneck for dashboard freshness is the **dbt refresh schedule**, controlled by Airflow.
+
+### Refresh schedule
+
+Airflow runs the `platform_refresh` DAG on a configurable schedule (default: `@hourly`). This means curated marts — and by extension, dashboards — reflect data up to one hour old in the default configuration.
+
+**Choosing a schedule:**
+
+| Schedule | Use case |
+|---|---|
+| `*/15 * * * *` (every 15 min) | Active monitoring, operational dashboards |
+| `@hourly` (default) | General reporting, good balance of freshness vs. resource usage |
+| `0 */4 * * *` (every 4 hours) | Periodic reporting, resource-constrained environments |
+| `@daily` | End-of-day reporting, minimal resource impact |
+
+Configure via `AIRFLOW_REFRESH_SCHEDULE` in `.env`. Any [cron expression](https://crontab.guru/) or Airflow preset (`@hourly`, `@daily`) is supported.
+
+### Freshness gate
+
+Before running dbt, Airflow checks whether raw data is actually fresh (new CDC events have arrived since the last check). If no new data has arrived within `FRESHNESS_MAX_AGE_MINUTES` (default: 60), the DAG skips the dbt run — saving compute when there are no changes to process.
+
+### Manual refresh
+
+To refresh marts immediately after a known change (e.g., after creating a requisition), trigger the DAG manually from the Airflow UI or run:
+
+```bash
+make dbt-build
+```

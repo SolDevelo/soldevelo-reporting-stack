@@ -34,12 +34,14 @@ make verify-services    # Kafka, Connect, Apicurio, Kafka UI, ClickHouse health
 make verify-cdc         # Debezium connector + CDC topics exist
 make verify-ingestion   # ClickHouse raw landing has data
 make verify-dbt        # dbt build succeeds, curated marts have data
+make verify-airflow    # Airflow healthy, platform_refresh DAG registered
 
 # ClickHouse
 make clickhouse-init   # create/update raw landing tables (idempotent)
 
 # dbt
 make dbt-build         # run dbt deps + build (Docker-based)
+make dbt-test          # run dbt tests only
 ```
 
 ## Architecture
@@ -52,11 +54,11 @@ Adopter PostgreSQL (external)
                     ├─▶ raw landing (append-only, for debug/replay/backfill)
                     └─▶ curated marts (BI contract — dashboards query only these)
                           ├─▶ dbt Core transformations
-                          │     └─▶ Airflow orchestration (planned)
+                          │     └─▶ Airflow orchestration
                           └─▶ Superset / Power BI (planned)
 ```
 
-Services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `apicurio`, `kafka-ui`, `clickhouse`. All have healthchecks. `kafka-connect` depends on both `kafka` and `apicurio` being healthy before starting.
+Services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `apicurio`, `kafka-ui`, `clickhouse`, `airflow-db`, `airflow-init`, `airflow-scheduler`, `airflow-webserver`. All have healthchecks. `kafka-connect` depends on both `kafka` and `apicurio` being healthy before starting.
 
 ## Platform + Packages Model
 
@@ -125,4 +127,4 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 
 ## Implementation Status
 
-Tasks 0–4 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations) are complete. The full implementation plan (Tasks 5–10) is documented in `docs/implementation-plan.md`. Tasks 5–8 are MVP scope; Tasks 9–10 are post-MVP.
+Tasks 0–5 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration) are complete. The full implementation plan (Tasks 6–10) is documented in `docs/implementation-plan.md`. Tasks 6–8 are MVP scope; Tasks 9–10 are post-MVP.

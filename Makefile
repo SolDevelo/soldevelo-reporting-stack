@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion verify-dbt clickhouse-init dbt-build register-connector connector-status delete-connector
+.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion verify-dbt verify-airflow clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector
 
 up: ## Start all services
 	$(COMPOSE_CMD) up -d
@@ -41,6 +41,12 @@ dbt-build: ## Run dbt build (deps + build)
 
 verify-dbt: ## Verify dbt models built successfully and curated marts have data
 	@bash scripts/verify/dbt.sh
+
+verify-airflow: ## Verify Airflow is healthy and platform_refresh DAG is registered
+	@bash scripts/verify/airflow.sh
+
+dbt-test: ## Run dbt tests only
+	@bash scripts/dbt/test.sh
 
 clickhouse-init: ## Initialize ClickHouse databases and raw landing tables
 	@bash scripts/clickhouse/init.sh

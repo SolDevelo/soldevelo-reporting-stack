@@ -12,6 +12,7 @@ Each target verifies a specific layer. Run them in order — each depends on the
 | `make verify-cdc` | Debezium connector is RUNNING, CDC topics exist |
 | `make verify-ingestion` | ClickHouse databases exist, events tables have rows |
 | `make verify-dbt` | dbt build succeeds, curated mart tables have rows |
+| `make verify-airflow` | Airflow webserver/scheduler healthy, platform_refresh DAG registered |
 
 Or run all at once via `make setup` (idempotent — also re-registers the connector and re-inits ClickHouse). dbt is run separately via `make dbt-build` or `make verify-dbt`.
 
@@ -158,6 +159,46 @@ curl -s "http://localhost:8123/" --user "default:changeme" \
 curl -s "http://localhost:8123/" --user "default:changeme" \
   --data-binary "SELECT facility_name, geographic_zone_name FROM curated.mart_facility_directory LIMIT 5 FORMAT Pretty"
 ```
+
+### verify-airflow
+
+Checks that the Airflow webserver and scheduler are healthy, and that the `platform_refresh` DAG is registered.
+
+#### Airflow architecture
+
+Airflow runs with LocalExecutor (no Celery/Redis). Services:
+
+| Service | Purpose |
+|---|---|
+| `airflow-db` | PostgreSQL 16 metadata database |
+| `airflow-init` | One-shot: DB migrations + admin user creation |
+| `airflow-scheduler` | Executes DAG tasks (has Docker socket access) |
+| `airflow-webserver` | Web UI at `http://localhost:8080` |
+
+The `platform_refresh` DAG runs on a schedule (default: `@hourly`):
+
+1. **check_freshness** — queries ClickHouse `max(_ingested_at)` for all raw event tables. Skips if data is older than `FRESHNESS_MAX_AGE_MINUTES` (default: 60).
+2. **dbt_build** — runs `scripts/dbt/build.sh` via BashOperator (Docker-in-Docker).
+3. **dbt_test** — runs `scripts/dbt/test.sh` via BashOperator.
+
+#### Docker-in-Docker setup
+
+The Airflow scheduler invokes dbt by running `docker run` via the host Docker socket. This requires:
+
+1. Docker socket mounted: `/var/run/docker.sock` (done in compose)
+2. `REPORTING_HOST_ROOT` set in `.env` to the **host** path of this repo (Docker resolves paths on the host, not inside the container)
+
+Without `REPORTING_HOST_ROOT`, the DAG's dbt tasks will fail because `docker build` and `docker run` volume mounts resolve against the host filesystem.
+
+#### Fernet key
+
+Airflow requires a Fernet key for encryption. Generate one:
+
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Set it in `.env` as `AIRFLOW__CORE__FERNET_KEY`.
 
 ## Source database setup
 

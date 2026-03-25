@@ -1,18 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Run dbt build using Docker.
+# Run dbt test using Docker.
 #
-# Builds the dbt Docker image, generates packages.yml from env vars,
-# then runs dbt deps + dbt build.
+# Same setup as build.sh but executes dbt test (data quality tests only,
+# no model builds). Intended for use by the Airflow DAG as a separate task.
 #
-# Configuration:
-#   ANALYTICS_CORE_PATH       path to core analytics package (default: examples/olmis-analytics-core)
-#   ANALYTICS_EXTENSIONS_PATHS  comma-separated extension package paths (optional)
-#   CLICKHOUSE_HOST           ClickHouse hostname for dbt (default: clickhouse)
-#   CLICKHOUSE_PORT           ClickHouse HTTP port (default: 8123)
-#   CLICKHOUSE_USER           ClickHouse user (default: default)
-#   CLICKHOUSE_PASSWORD       ClickHouse password (default: changeme)
-#   DBT_ARGS                  additional arguments passed to dbt build (optional)
+# Configuration: same as build.sh
 # =============================================================================
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -21,9 +14,6 @@ if [ -f "$REPO_ROOT/.env" ]; then
   set -a; source "$REPO_ROOT/.env"; set +a
 fi
 
-# When invoked from inside a Docker container (e.g., Airflow) via socket bind-mount,
-# docker build/run paths are resolved by the HOST daemon, not the container filesystem.
-# REPORTING_HOST_ROOT overrides REPO_ROOT for docker command arguments.
 if [ -f "/.dockerenv" ] && [ -n "${REPORTING_HOST_ROOT:-}" ]; then
   REPO_ROOT="$REPORTING_HOST_ROOT"
 fi
@@ -39,7 +29,6 @@ DBT_ARGS="${DBT_ARGS:-}"
 DBT_DIR="$REPO_ROOT/dbt"
 
 # Generate packages.yml from env vars
-echo "Generating packages.yml..."
 PACKAGES_FILE="$DBT_DIR/packages.yml"
 cat > "$PACKAGES_FILE" <<EOF
 packages:
@@ -53,13 +42,10 @@ if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
   done
 fi
 
-echo "Building dbt Docker image..."
 docker build -q -t reporting-dbt "$DBT_DIR"
 
-# Build volume mounts: dbt project + analytics packages
 COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-soldevelo-reporting-stack}"
 
-# Resolve absolute vs relative paths for analytics packages
 resolve_path() {
   if [[ "$1" = /* ]]; then
     echo "$1"
@@ -80,7 +66,6 @@ DOCKER_ARGS=(
   -v "$CORE_ABS:/analytics/core:ro"
 )
 
-# Mount extensions if configured
 if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
   IFS=',' read -ra EXTENSIONS <<< "$ANALYTICS_EXTENSIONS_PATHS"
   for i in "${!EXTENSIONS[@]}"; do
@@ -89,11 +74,10 @@ if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
   done
 fi
 
-echo "Running dbt deps + build..."
-# Run deps and build in the same container so dbt_packages persists
+echo "Running dbt deps + test..."
 # shellcheck disable=SC2086
 docker run "${DOCKER_ARGS[@]}" --entrypoint bash reporting-dbt -c \
-  "dbt deps --profiles-dir /dbt && dbt build --profiles-dir /dbt $DBT_ARGS"
+  "dbt deps --profiles-dir /dbt && dbt test --profiles-dir /dbt $DBT_ARGS"
 
 echo ""
-echo "dbt build complete."
+echo "dbt test complete."

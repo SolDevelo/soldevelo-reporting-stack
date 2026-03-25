@@ -49,7 +49,7 @@ The remaining defaults work for the built-in OLMIS example package. See [Environ
 make up
 ```
 
-This starts Kafka, Kafka Connect, Apicurio Registry, Kafka UI, and ClickHouse. Services need ~90 seconds to fully initialize (Kafka Connect is the slowest).
+This starts Kafka, Kafka Connect, Apicurio Registry, Kafka UI, ClickHouse, and Airflow. Services need ~90 seconds to fully initialize (Kafka Connect is the slowest).
 
 ### 3. Set up the pipeline
 
@@ -72,6 +72,7 @@ make verify-services    # Kafka, Connect, Apicurio, Kafka UI, ClickHouse
 make verify-cdc         # Debezium connector + CDC topics
 make verify-ingestion   # ClickHouse raw landing tables
 make verify-dbt         # dbt build + curated mart tables
+make verify-airflow     # Airflow health + DAG registration
 ```
 
 ## Service UIs
@@ -82,6 +83,7 @@ make verify-dbt         # dbt build + curated mart tables
 | Kafka Connect REST | http://localhost:8083 | Connector management API |
 | Apicurio Registry | http://localhost:8085 | Schema governance |
 | ClickHouse HTTP | http://localhost:8123 | Query analytics data |
+| Airflow | http://localhost:8080 | DAG management and monitoring |
 
 ## Common operations
 
@@ -104,7 +106,9 @@ Copy `.env.example` to `.env`. Key variable groups:
 |---|---|---|
 | Source database | `SOURCE_PG_HOST`, `SOURCE_PG_PORT`, `SOURCE_PG_DB`, `SOURCE_PG_USER`, `SOURCE_PG_PASSWORD` | PostgreSQL connection for CDC |
 | Debezium | `SOURCE_PG_SLOT_NAME`, `SOURCE_PG_PUBLICATION`, `DEBEZIUM_TOPIC_PREFIX`, `SOURCE_PG_TABLE_ALLOWLIST` | CDC connector settings |
-| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `APICURIO_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT` | Host port mappings |
+| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `APICURIO_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT`, `AIRFLOW_PORT` | Host port mappings |
+| Data freshness | `AIRFLOW_REFRESH_SCHEDULE`, `FRESHNESS_MAX_AGE_MINUTES` | How often dashboards refresh (see below) |
+| Airflow | `AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD` | Orchestrator settings |
 | Analytics packages | `ANALYTICS_CORE_PATH`, `ANALYTICS_EXTENSIONS_PATHS` | Package loading (see below) |
 
 ## Analytics packages
@@ -117,6 +121,22 @@ Adopters provide domain-specific reporting logic via **analytics packages** — 
 The built-in OLMIS example packages under `examples/` demonstrate the expected structure. Set `ANALYTICS_CORE_PATH` in `.env` to point to your package (default: `examples/olmis-analytics-core`).
 
 For the full package contract and governance model, see [docs/architecture.md](docs/architecture.md).
+
+## Data freshness
+
+Changes in the source database reach ClickHouse raw landing within **seconds** (real-time CDC). However, **dashboard data** depends on how often dbt rebuilds the curated marts.
+
+Airflow runs the `platform_refresh` DAG on a schedule controlled by `AIRFLOW_REFRESH_SCHEDULE` in `.env`:
+
+| Setting | Meaning |
+|---|---|
+| `*/15 * * * *` | Every 15 minutes — for operational dashboards |
+| `@hourly` (default) | Every hour — good balance for general reporting |
+| `@daily` | Once per day — minimal resource usage |
+
+To refresh data immediately after a change, run `make dbt-build` or trigger the DAG from the Airflow UI (`http://localhost:8080`).
+
+For a detailed breakdown of latency at each pipeline layer, see [docs/architecture.md](docs/architecture.md#data-freshness-and-refresh-latency).
 
 ## Repository structure
 
@@ -140,7 +160,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 | Debezium CDC ingestion | Complete |
 | ClickHouse raw landing | Complete |
 | dbt transformations | Complete |
-| Airflow orchestration | Planned |
+| Airflow orchestration | Complete |
 | Superset + assets-as-code | Planned |
 | Package system formalization | Planned |
 | Extension example (Malawi) | Planned |

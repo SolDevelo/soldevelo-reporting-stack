@@ -61,25 +61,28 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values:
-                - INITIATED
-                - SUBMITTED
-                - AUTHORIZED
-                - IN_APPROVAL
-                - APPROVED
-                - RELEASED
-                - RELEASED_WITHOUT_ORDER
-                - SKIPPED
-                - REJECTED
+              arguments:
+                values:
+                  - INITIATED
+                  - SUBMITTED
+                  - AUTHORIZED
+                  - IN_APPROVAL
+                  - APPROVED
+                  - RELEASED
+                  - RELEASED_WITHOUT_ORDER
+                  - SKIPPED
+                  - REJECTED
       - name: facility_id
         tests:
           - not_null
           - relationships:
-              to: ref('stg_facilities')
-              field: id
+              arguments:
+                to: ref('stg_facilities')
+                field: id
       - name: program_id
         tests:
           - not_null
           - relationships:
-              to: ref('stg_programs')
-              field: id
+              arguments:
+                to: ref('stg_programs')
+                field: id

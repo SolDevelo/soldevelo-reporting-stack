@@ -32,16 +32,17 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values:
-                - INITIATED
-                - SUBMITTED
-                - AUTHORIZED
-                - IN_APPROVAL
-                - APPROVED
-                - RELEASED
-                - RELEASED_WITHOUT_ORDER
-                - SKIPPED
-                - REJECTED
+              arguments:
+                values:
+                  - INITIATED
+                  - SUBMITTED
+                  - AUTHORIZED
+                  - IN_APPROVAL
+                  - APPROVED
+                  - RELEASED
+                  - RELEASED_WITHOUT_ORDER
+                  - SKIPPED
+                  - REJECTED
       - name: facility_name
         tests:
           - not_null

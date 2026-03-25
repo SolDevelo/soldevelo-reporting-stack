@@ -21,7 +21,6 @@ Environment variables (from .env via compose env_file):
 import os
 from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
-from urllib.error import URLError
 from base64 import b64encode
 
 from airflow import DAG
@@ -37,8 +36,7 @@ DEBEZIUM_TOPIC_PREFIX = os.environ.get("DEBEZIUM_TOPIC_PREFIX", "openlmis")
 TABLE_ALLOWLIST = os.environ.get("SOURCE_PG_TABLE_ALLOWLIST", "")
 FRESHNESS_MAX_AGE = int(os.environ.get("FRESHNESS_MAX_AGE_MINUTES", "60"))
 SCHEDULE = os.environ.get("AIRFLOW_REFRESH_SCHEDULE", "@hourly")
-REPORTING_ROOT = os.environ.get("REPORTING_HOST_ROOT",
-                                os.environ.get("REPORTING_ROOT", "/opt/reporting"))
+REPORTING_ROOT = os.environ.get("REPORTING_HOST_ROOT", "/opt/reporting")
 
 
 def _ch_query(sql):
@@ -46,11 +44,8 @@ def _ch_query(sql):
     url = f"http://{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}/"
     creds = b64encode(f"{CLICKHOUSE_USER}:{CLICKHOUSE_PASSWORD}".encode()).decode()
     req = Request(url, data=sql.encode(), headers={"Authorization": f"Basic {creds}"})
-    try:
-        with urlopen(req, timeout=10) as resp:
-            return resp.read().decode().strip()
-    except URLError:
-        return ""
+    with urlopen(req, timeout=10) as resp:
+        return resp.read().decode().strip()
 
 
 def _get_topics():
@@ -134,12 +129,12 @@ with DAG(
 
     build = BashOperator(
         task_id="dbt_build",
-        bash_command="bash /opt/reporting/scripts/dbt/build.sh",
+        bash_command="bash /opt/reporting/scripts/dbt/run.sh build",
     )
 
     test = BashOperator(
         task_id="dbt_test",
-        bash_command="bash /opt/reporting/scripts/dbt/test.sh",
+        bash_command="bash /opt/reporting/scripts/dbt/run.sh test",
     )
 
     freshness >> build >> test

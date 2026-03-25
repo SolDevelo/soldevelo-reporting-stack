@@ -9,6 +9,7 @@ if [ -f "$REPO_ROOT/.env" ]; then
   set -a; source "$REPO_ROOT/.env"; set +a
 fi
 
+AIRFLOW_HOST="${AIRFLOW_HOST_EXTERNAL:-localhost}"
 AIRFLOW_PORT="${AIRFLOW_PORT:-8080}"
 AIRFLOW_USER="${AIRFLOW_ADMIN_USER:-admin}"
 AIRFLOW_PASS="${AIRFLOW_ADMIN_PASSWORD:-admin}"
@@ -32,13 +33,13 @@ echo "Verify: Airflow orchestration"
 echo "-------------------------------"
 
 check "Airflow webserver health" \
-  "curl -sf http://localhost:${AIRFLOW_PORT}/health"
+  "curl -sf http://${AIRFLOW_HOST}:${AIRFLOW_PORT}/health"
 
 check "Airflow scheduler healthy" \
-  "curl -sf http://localhost:${AIRFLOW_PORT}/health | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['scheduler']['status']=='healthy'\""
+  "curl -sf http://${AIRFLOW_HOST}:${AIRFLOW_PORT}/health | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['scheduler']['status']=='healthy'\""
 
 check "DAG 'platform_refresh' registered" \
-  "curl -sf -u '${AIRFLOW_USER}:${AIRFLOW_PASS}' http://localhost:${AIRFLOW_PORT}/api/v1/dags/platform_refresh"
+  "curl -sf -u '${AIRFLOW_USER}:${AIRFLOW_PASS}' http://${AIRFLOW_HOST}:${AIRFLOW_PORT}/api/v1/dags/platform_refresh"
 
 echo "-------------------------------"
 echo "Results: ${PASS} passed, ${FAIL} failed"

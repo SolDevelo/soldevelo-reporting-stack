@@ -221,7 +221,7 @@ services:
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/airflow"
-      AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY:-}"
+      AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY}"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "false"
       _AIRFLOW_DB_MIGRATE: "true"
@@ -233,7 +233,7 @@ services:
       - -c
       - |
         airflow db migrate
-        airflow users list | grep -q "${AIRFLOW_ADMIN_USER:-admin}" || \
+        airflow users list 2>/dev/null | grep -qw "${AIRFLOW_ADMIN_USER:-admin}" || \
           airflow users create \
             --username "${AIRFLOW_ADMIN_USER:-admin}" \
             --password "${AIRFLOW_ADMIN_PASSWORD:-admin}" \
@@ -257,7 +257,7 @@ services:
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/airflow"
-      AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY:-}"
+      AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY}"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       REPORTING_HOST_ROOT: "${REPORTING_HOST_ROOT:-}"
@@ -266,7 +266,7 @@ services:
       - ../airflow/dags:/opt/airflow/dags:ro
       - airflow_logs:/opt/airflow/logs
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../:/opt/reporting:ro
+      - ../:/opt/reporting
     command: scheduler
     mem_limit: 512m
     healthcheck:
@@ -287,10 +287,11 @@ services:
     depends_on:
       airflow-scheduler:
         condition: service_healthy
+    env_file: ../.env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/airflow"
-      AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY:-}"
+      AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY}"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"

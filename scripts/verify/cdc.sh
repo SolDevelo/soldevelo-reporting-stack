@@ -39,8 +39,9 @@ check_connector_running() {
   status=$(curl -sf "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status")
   local conn_state
   conn_state=$(echo "$status" | python3 -c "import sys,json; print(json.load(sys.stdin)['connector']['state'])")
-  if [ "$conn_state" != "RUNNING" ]; then
-    echo "    connector state: $conn_state (expected RUNNING)" >&2
+  # On single-node Connect, connector state can be UNASSIGNED while tasks run fine
+  if [ "$conn_state" != "RUNNING" ] && [ "$conn_state" != "UNASSIGNED" ]; then
+    echo "    connector state: $conn_state (expected RUNNING or UNASSIGNED)" >&2
     return 1
   fi
   # Check that at least one task is RUNNING

@@ -22,6 +22,7 @@ For architecture principles and design rationale, see [docs/architecture.md](doc
 - Docker Engine + Docker Compose plugin
 - Network access to the adopter's PostgreSQL database
 - PostgreSQL configured for logical replication — see [docs/source-db-setup.md](docs/source-db-setup.md)
+- **Minimum resources:** ~4 GB RAM for the reporting stack alone; ~6 GB when running alongside a typical adopter application. Disk usage depends on CDC volume and raw landing TTL (default 90 days)
 
 ## Getting started
 
@@ -41,9 +42,34 @@ SOURCE_PG_USER=postgres
 SOURCE_PG_PASSWORD=p@ssw0rd
 ```
 
+Generate and set a Fernet key (required for Airflow encryption):
+
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Paste the output as AIRFLOW__CORE__FERNET_KEY in .env
+```
+
+Set `REPORTING_HOST_ROOT` to the **absolute host path** of this repository (required for Airflow to invoke dbt):
+
+```env
+REPORTING_HOST_ROOT=/home/user/workspace/openlmis-reporting
+```
+
 The remaining defaults work for the built-in OLMIS example package. See [Environment configuration](#environment-configuration) for all variables.
 
-### 2. Start services
+> **Note:** The default credentials in `.env.example` (`changeme`, `admin`) are for local development only. For production deployments, change all passwords and see [Security considerations](#security-considerations).
+
+### 2. Create the shared network (standalone deployments only)
+
+If you are **not** using the openlmis-ref-distro overlay (which creates this network automatically), create it manually:
+
+```bash
+docker network create reporting-shared
+```
+
+This network allows Kafka Connect to reach the source database. If using the ref-distro overlay, skip this step.
+
+### 3. Start services
 
 ```bash
 make up
@@ -51,7 +77,7 @@ make up
 
 This starts Kafka, Kafka Connect, Apicurio Registry, Kafka UI, ClickHouse, and Airflow. Services need ~90 seconds to fully initialize (Kafka Connect is the slowest).
 
-### 3. Set up the pipeline
+### 4. Set up the pipeline
 
 ```bash
 make setup
@@ -94,7 +120,7 @@ make ps          # show running services
 make logs        # tail all logs (SVC=kafka to filter)
 make setup       # configure pipeline (idempotent, run after make up)
 make dbt-build   # run dbt transformations (builds curated marts)
-make reset       # stop and wipe all data volumes
+make reset       # ⚠ DESTRUCTIVE: stop and delete all data (Kafka, ClickHouse, Airflow)
 make build       # rebuild Docker images after changes
 ```
 
@@ -106,7 +132,7 @@ Copy `.env.example` to `.env`. Key variable groups:
 |---|---|---|
 | Source database | `SOURCE_PG_HOST`, `SOURCE_PG_PORT`, `SOURCE_PG_DB`, `SOURCE_PG_USER`, `SOURCE_PG_PASSWORD` | PostgreSQL connection for CDC |
 | Debezium | `SOURCE_PG_SLOT_NAME`, `SOURCE_PG_PUBLICATION`, `DEBEZIUM_TOPIC_PREFIX`, `SOURCE_PG_TABLE_ALLOWLIST` | CDC connector settings |
-| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `APICURIO_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT`, `AIRFLOW_PORT` | Host port mappings |
+| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `APICURIO_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT`, `AIRFLOW_PORT` | Host port mappings (change if conflicts with other services) |
 | Data freshness | `AIRFLOW_REFRESH_SCHEDULE`, `FRESHNESS_MAX_AGE_MINUTES` | How often dashboards refresh (see below) |
 | Airflow | `AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD` | Orchestrator settings |
 | Analytics packages | `ANALYTICS_CORE_PATH`, `ANALYTICS_EXTENSIONS_PATHS` | Package loading (see below) |
@@ -136,7 +162,17 @@ Airflow runs the `platform_refresh` DAG on a schedule controlled by `AIRFLOW_REF
 
 To refresh data immediately after a change, run `make dbt-build` or trigger the DAG from the Airflow UI (`http://localhost:8080`).
 
+**When dbt tests fail**, the Airflow DAG run is marked as failed but dashboards continue serving the previous data (marts are not corrupted). Check the Airflow UI for failed runs — red indicates a data quality issue that should be investigated. There is currently no automated alerting (planned for post-MVP).
+
 For a detailed breakdown of latency at each pipeline layer, see [docs/architecture.md](docs/architecture.md#data-freshness-and-refresh-latency).
+
+## Security considerations
+
+**Default credentials are for development only.** Before any production or internet-exposed deployment, change all passwords in `.env`: `SOURCE_PG_PASSWORD`, `CLICKHOUSE_PASSWORD`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_ADMIN_PASSWORD`, `SUPERSET_ADMIN_PASSWORD`, and `SUPERSET_SECRET_KEY`.
+
+**Service ports are exposed on the host.** By default, Kafka UI (9080), Kafka Connect (8083), ClickHouse (8123), and Airflow (8080) are accessible on all interfaces. In production, restrict access with firewall rules or bind to localhost only. Port variables (e.g., `AIRFLOW_PORT`) control host mappings — changing them does not affect inter-container communication.
+
+**Docker socket access.** The Airflow scheduler mounts `/var/run/docker.sock` to invoke dbt via Docker. This grants the container root-equivalent access to the Docker daemon. This is standard for CI/CD-style workloads but should be understood: a compromised Airflow scheduler could control any container on the host. In production, consider using a Docker socket proxy or running Airflow outside of Docker.
 
 ## Repository structure
 

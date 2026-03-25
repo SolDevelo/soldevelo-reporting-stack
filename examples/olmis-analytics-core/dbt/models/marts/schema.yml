@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: mart_facility_directory
+    description: >
+      Enriched facility directory with geographic zone hierarchy.
+      BI contract: dashboards should query this mart, not raw tables.
+    columns:
+      - name: facility_id
+        description: Facility UUID
+        tests:
+          - not_null
+          - unique
+      - name: facility_code
+        tests:
+          - not_null
+      - name: facility_name
+        tests:
+          - not_null
+
+  - name: mart_requisition_summary
+    description: >
+      Requisitions enriched with facility, program, and geographic zone names.
+      BI contract: dashboards should query this mart, not raw tables.
+    columns:
+      - name: requisition_id
+        description: Requisition UUID
+        tests:
+          - not_null
+          - unique
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - INITIATED
+                - SUBMITTED
+                - AUTHORIZED
+                - IN_APPROVAL
+                - APPROVED
+                - RELEASED
+                - RELEASED_WITHOUT_ORDER
+                - SKIPPED
+                - REJECTED
+      - name: facility_name
+        tests:
+          - not_null
+      - name: program_name
+        tests:
+          - not_null

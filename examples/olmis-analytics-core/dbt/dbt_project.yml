@@ -1,0 +1,16 @@
+name: olmis_analytics_core
+version: '1.0.0'
+config-version: 2
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+
+models:
+  olmis_analytics_core:
+    staging:
+      +materialized: view
+      +schema: curated
+    marts:
+      +materialized: table
+      +schema: curated

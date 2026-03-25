@@ -1,0 +1,17 @@
+name: reporting_platform
+version: '1.0.0'
+config-version: 2
+
+profile: reporting_platform
+
+# The runner project has no models of its own.
+# All models come from packages loaded via packages.yml.
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+
+clean-targets:
+  - target
+  - dbt_packages
+  - logs

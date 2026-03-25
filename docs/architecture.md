@@ -62,6 +62,17 @@ For each CDC topic, the platform creates:
 | `raw.events_<topic>` | MergeTree | Append-only storage (configurable TTL, default 90 days via `RAW_TTL_DAYS`) |
 | `raw.mv_<topic>` | Materialized View | Routes Kafka → MergeTree, filters deserialization errors |
 
-Each event stores the full Debezium envelope as JSON strings: `op`, `ts_ms`, `before`, `after`, `source`, `transaction`. The dbt layer (Task 4) parses these into typed columns and reconstructs current-state rows.
+Each event stores the full Debezium envelope as JSON strings: `op`, `ts_ms`, `before`, `after`, `source`, `transaction`. The dbt layer parses these into typed columns and reconstructs current-state rows.
+
+## dbt transformation pattern
+
+dbt runs via Docker (`dbt/Dockerfile`) with dbt-core + dbt-clickhouse adapter. The platform provides a runner project (`dbt/`) and generic macros; adopter packages provide models via dbt's local package mechanism.
+
+| Layer | Schema | Materialization | Purpose |
+|---|---|---|---|
+| Staging (`stg_*`) | `curated` | View | Current-state reconstruction from raw CDC events via `row_number()` + JSON extraction |
+| Marts (`mart_*`) | `curated` | MergeTree table | BI-ready datasets joining staging views — the stable contract for dashboards |
+
+Staging views handle CDC semantics: for each primary key, they select the latest event by `ts_ms` and `_ingested_at`, excluding deletes (`op != 'd'`). This deterministic logic correctly handles initial snapshots, incremental changes, and replay scenarios.
 
 **Error handling:** Kafka Engine tables use `kafka_handle_error_mode = 'stream'`. Malformed messages are filtered out by the Materialized View (`WHERE length(_error) = 0`) and silently skipped — there is no DLQ. See [development.md](development.md#error-handling) for diagnostics.

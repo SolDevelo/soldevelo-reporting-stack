@@ -11,8 +11,9 @@ Each target verifies a specific layer. Run them in order — each depends on the
 | `make verify-services` | Kafka, Kafka Connect, Apicurio, Kafka UI, ClickHouse are healthy |
 | `make verify-cdc` | Debezium connector is RUNNING, CDC topics exist |
 | `make verify-ingestion` | ClickHouse databases exist, events tables have rows |
+| `make verify-dbt` | dbt build succeeds, curated mart tables have rows |
 
-Or run all at once via `make setup` (idempotent — also re-registers the connector and re-inits ClickHouse).
+Or run all at once via `make setup` (idempotent — also re-registers the connector and re-inits ClickHouse). dbt is run separately via `make dbt-build` or `make verify-dbt`.
 
 ### verify-services
 
@@ -113,6 +114,49 @@ curl -s "http://localhost:8123/" --user "default:changeme" \
 # Parse JSON payload
 curl -s "http://localhost:8123/" --user "default:changeme" \
   --data-binary "SELECT JSONExtractString(after, 'name') as name FROM raw.events_openlmis_referencedata_programs LIMIT 5 FORMAT Pretty"
+```
+
+### verify-dbt
+
+Runs `dbt build` (deps + models + tests) via Docker, then checks that curated mart tables exist with rows.
+
+```bash
+make dbt-build      # run dbt build only
+make verify-dbt     # run dbt build + verify curated marts
+```
+
+#### dbt architecture
+
+The platform provides a **runner project** (`dbt/`) with generic macros. Adopter packages provide domain-specific models via dbt's local package mechanism:
+
+```
+dbt/                          # Platform runner project
+  dbt_project.yml             # Runner config
+  profiles.yml                # ClickHouse connection (env-var driven)
+  packages.yml                # Generated: loads core + extension packages
+  macros/                     # Platform macros (CDC helpers, schema override)
+  Dockerfile                  # dbt-core + dbt-clickhouse image
+
+examples/olmis-analytics-core/dbt/   # Example core package
+  dbt_project.yml             # Package config
+  models/staging/             # Current-state views from raw CDC events
+  models/marts/               # Curated tables (BI contract)
+```
+
+Models are materialized in the `curated` ClickHouse database:
+- **Staging** (`stg_*`): views that reconstruct current state from CDC events using `row_number()` + JSON extraction
+- **Marts** (`mart_*`): MergeTree tables that join staging views into BI-ready datasets
+
+Manual ClickHouse queries for curated data:
+
+```bash
+# List curated marts and row counts
+curl -s "http://localhost:8123/" --user "default:changeme" \
+  --data-binary "SELECT name, total_rows FROM system.tables WHERE database = 'curated' FORMAT Pretty"
+
+# Query a mart
+curl -s "http://localhost:8123/" --user "default:changeme" \
+  --data-binary "SELECT facility_name, geographic_zone_name FROM curated.mart_facility_directory LIMIT 5 FORMAT Pretty"
 ```
 
 ## Source database setup

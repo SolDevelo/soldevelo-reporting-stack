@@ -33,9 +33,13 @@ make delete-connector     # remove connector
 make verify-services    # Kafka, Connect, Apicurio, Kafka UI, ClickHouse health
 make verify-cdc         # Debezium connector + CDC topics exist
 make verify-ingestion   # ClickHouse raw landing has data
+make verify-dbt        # dbt build succeeds, curated marts have data
 
 # ClickHouse
 make clickhouse-init   # create/update raw landing tables (idempotent)
+
+# dbt
+make dbt-build         # run dbt deps + build (Docker-based)
 ```
 
 ## Architecture
@@ -47,7 +51,7 @@ Adopter PostgreSQL (external)
               └─▶ ClickHouse
                     ├─▶ raw landing (append-only, for debug/replay/backfill)
                     └─▶ curated marts (BI contract — dashboards query only these)
-                          ├─▶ dbt Core transformations (planned)
+                          ├─▶ dbt Core transformations
                           │     └─▶ Airflow orchestration (planned)
                           └─▶ Superset / Power BI (planned)
 ```
@@ -121,4 +125,4 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 
 ## Implementation Status
 
-Tasks 0–3 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing) are complete. The full implementation plan (Tasks 4–10) is documented in `docs/implementation-plan.md`. Tasks 4–8 are MVP scope; Tasks 9–10 are post-MVP.
+Tasks 0–4 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations) are complete. The full implementation plan (Tasks 5–10) is documented in `docs/implementation-plan.md`. Tasks 5–8 are MVP scope; Tasks 9–10 are post-MVP.

@@ -19,9 +19,16 @@ __pycache__/
 *.pyo
 venv/
 .venv/
+dbt/packages.yml
+dbt/package-lock.yml
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
+dbt/.user.yml
+**/dbt/target/
+**/dbt/dbt_packages/
+**/dbt/logs/
+**/dbt/.user.yml
 airflow/logs/
 airflow/plugins/__pycache__/
 

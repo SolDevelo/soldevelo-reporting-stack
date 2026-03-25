@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: stg_facilities
+    description: Current-state view of facilities from CDC events
+    columns:
+      - name: id
+        description: Facility UUID
+        tests:
+          - not_null
+          - unique
+      - name: code
+        tests:
+          - not_null
+      - name: name
+        tests:
+          - not_null
+      - name: active
+        tests:
+          - not_null
+
+  - name: stg_programs
+    description: Current-state view of programs from CDC events
+    columns:
+      - name: id
+        description: Program UUID
+        tests:
+          - not_null
+          - unique
+      - name: code
+        tests:
+          - not_null
+      - name: name
+        tests:
+          - not_null
+
+  - name: stg_geographic_zones
+    description: Current-state view of geographic zones from CDC events
+    columns:
+      - name: id
+        description: Geographic zone UUID
+        tests:
+          - not_null
+          - unique
+      - name: code
+        tests:
+          - not_null
+      - name: name
+        tests:
+          - not_null
+
+  - name: stg_requisitions
+    description: Current-state view of requisitions from CDC events
+    columns:
+      - name: id
+        description: Requisition UUID
+        tests:
+          - not_null
+          - unique
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - INITIATED
+                - SUBMITTED
+                - AUTHORIZED
+                - IN_APPROVAL
+                - APPROVED
+                - RELEASED
+                - RELEASED_WITHOUT_ORDER
+                - SKIPPED
+                - REJECTED
+      - name: facility_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_facilities')
+              field: id
+      - name: program_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_programs')
+              field: id

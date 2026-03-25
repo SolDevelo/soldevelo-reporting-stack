@@ -30,7 +30,7 @@ make connector-status     # show connector + task status
 make delete-connector     # remove connector
 
 # Verification (sequential)
-make verify-services    # Kafka, Connect, Apicurio, Kafka UI health
+make verify-services    # Kafka, Connect, Apicurio, Kafka UI, ClickHouse health
 make verify-cdc         # Debezium connector + CDC topics exist
 make verify-ingestion   # ClickHouse raw landing has data
 

@@ -8,7 +8,7 @@ Each target verifies a specific layer. Run them in order — each depends on the
 
 | Target | What it checks |
 |---|---|
-| `make verify-services` | Kafka, Kafka Connect, Apicurio, Kafka UI are healthy |
+| `make verify-services` | Kafka, Kafka Connect, Apicurio, Kafka UI, ClickHouse are healthy |
 | `make verify-cdc` | Debezium connector is RUNNING, CDC topics exist |
 | `make verify-ingestion` | ClickHouse databases exist, events tables have rows |
 
@@ -33,6 +33,9 @@ curl -s http://localhost:${APICURIO_PORT:-8085}/health
 
 # Kafka UI
 curl -s http://localhost:${KAFKA_UI_PORT:-9080}/ | head -5
+
+# ClickHouse
+curl -s http://localhost:${CLICKHOUSE_PORT:-8123}/ping
 ```
 
 ### verify-cdc
@@ -61,6 +64,36 @@ The default allowlist (`SOURCE_PG_TABLE_ALLOWLIST` in `.env`) captures a small s
 2. Add the tables to the PostgreSQL publication (see [source-db-setup.md](source-db-setup.md))
 3. Re-register: `make register-connector`
 4. Re-init ClickHouse: `make clickhouse-init`
+
+### ClickHouse raw landing configuration
+
+The raw landing layer has several optional settings (all have sensible defaults):
+
+| Variable | Default | Description |
+|---|---|---|
+| `RAW_KAFKA_TOPICS` | derived from `SOURCE_PG_TABLE_ALLOWLIST` | Explicit comma-separated list of Kafka topic names to ingest |
+| `RAW_TTL_DAYS` | `90` | Retention period in days for `raw.events_*` tables. Set to `0` to disable TTL |
+| `CLICKHOUSE_HOST_EXTERNAL` | `localhost` | Override `CLICKHOUSE_HOST` for host-side scripts (useful for remote ClickHouse deployments) |
+
+TTL is applied per-table at creation time. Changing `RAW_TTL_DAYS` only affects newly created tables — existing tables retain their original TTL. To update TTL on existing tables, run:
+
+```bash
+curl -s "http://localhost:8123/" --user "default:changeme" \
+  --data-binary "ALTER TABLE raw.events_<table_name> MODIFY TTL toDateTime(_ingested_at) + INTERVAL <days> DAY"
+```
+
+#### Error handling
+
+The Kafka Engine tables use `kafka_handle_error_mode = 'stream'`, which routes deserialization errors to the `_error` virtual column instead of stalling the consumer. The Materialized View filters these with `WHERE length(_error) = 0`, so malformed messages are silently skipped.
+
+There is currently no dead-letter queue (DLQ) for failed records. To check for deserialization errors, query the Kafka Engine table directly:
+
+```bash
+curl -s "http://localhost:8123/" --user "default:changeme" \
+  --data-binary "SELECT _error, count() FROM raw.kafka_<table_name> WHERE length(_error) > 0 GROUP BY _error FORMAT Pretty"
+```
+
+> **Note:** The Kafka Engine table is a virtual consumer — querying it consumes messages. Use this only for diagnostics, not regular monitoring.
 
 ### verify-ingestion
 

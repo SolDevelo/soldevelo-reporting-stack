@@ -59,7 +59,9 @@ For each CDC topic, the platform creates:
 | Table | Engine | Purpose |
 |---|---|---|
 | `raw.kafka_<topic>` | Kafka Engine | Consumes JSON CDC events from Kafka |
-| `raw.events_<topic>` | MergeTree | Append-only storage (90-day TTL default) |
-| `raw.mv_<topic>` | Materialized View | Routes Kafka → MergeTree |
+| `raw.events_<topic>` | MergeTree | Append-only storage (configurable TTL, default 90 days via `RAW_TTL_DAYS`) |
+| `raw.mv_<topic>` | Materialized View | Routes Kafka → MergeTree, filters deserialization errors |
 
 Each event stores the full Debezium envelope as JSON strings: `op`, `ts_ms`, `before`, `after`, `source`, `transaction`. The dbt layer (Task 4) parses these into typed columns and reconstructs current-state rows.
+
+**Error handling:** Kafka Engine tables use `kafka_handle_error_mode = 'stream'`. Malformed messages are filtered out by the Materialized View (`WHERE length(_error) = 0`) and silently skipped — there is no DLQ. See [development.md](development.md#error-handling) for diagnostics.

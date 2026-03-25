@@ -11,8 +11,10 @@
 #
 # Configuration:
 #   RAW_KAFKA_TOPICS   comma-separated list of Kafka topic names
-#                      (default: reads from SOURCE_PG_TABLE_ALLOWLIST + DEBEZIUM_TOPIC_PREFIX)
+#                      (default: derived from SOURCE_PG_TABLE_ALLOWLIST + DEBEZIUM_TOPIC_PREFIX)
+#   RAW_TTL_DAYS       retention period in days for raw events tables (default: 90)
 #   CLICKHOUSE_HOST    ClickHouse hostname (default: localhost)
+#   CLICKHOUSE_HOST_EXTERNAL  override CLICKHOUSE_HOST for host-side scripts (default: localhost)
 #   CLICKHOUSE_PORT    ClickHouse HTTP port (default: 8123)
 #   CLICKHOUSE_USER    ClickHouse user (default: default)
 #   CLICKHOUSE_PASSWORD ClickHouse password (default: changeme)
@@ -34,6 +36,7 @@ CLICKHOUSE_USER="${CLICKHOUSE_USER:-default}"
 CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-changeme}"
 KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
 DEBEZIUM_TOPIC_PREFIX="${DEBEZIUM_TOPIC_PREFIX:-openlmis}"
+RAW_TTL_DAYS="${RAW_TTL_DAYS:-90}"
 
 # Build topic list from TABLE_ALLOWLIST if RAW_KAFKA_TOPICS not set
 if [ -z "${RAW_KAFKA_TOPICS:-}" ]; then
@@ -116,8 +119,8 @@ for topic in "${TOPICS[@]}"; do
       transaction String COMMENT 'JSON: transaction metadata'
     ) ENGINE = MergeTree()
     ORDER BY (_topic, ts_ms, _ingested_at)
-    TTL toDateTime(_ingested_at) + INTERVAL 90 DAY
-    COMMENT 'Append-only CDC event landing for ${topic}. TTL: 90 days (adjust per deployment).';
+    TTL toDateTime(_ingested_at) + INTERVAL ${RAW_TTL_DAYS} DAY
+    COMMENT 'Append-only CDC event landing for ${topic}. TTL: ${RAW_TTL_DAYS} days.';
   "
 
   # Materialized View: Kafka → MergeTree

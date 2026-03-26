@@ -233,6 +233,7 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for detailed task
 | [docs/development.md](docs/development.md) | Developer workflow, step-by-step verification, debugging |
 | [docs/source-db-setup.md](docs/source-db-setup.md) | Source database configuration, WAL safety, network setup |
 | [docs/usage-guide.md](docs/usage-guide.md) | Practical how-tos: add tables, dbt models, Superset charts, author packages |
+| [docs/end-to-end-test.md](docs/end-to-end-test.md) | End-to-end test: OLMIS change → CDC → ClickHouse → dbt → Superset |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Implementation task breakdown (Tasks 3–10) |
 
 ## Contributing

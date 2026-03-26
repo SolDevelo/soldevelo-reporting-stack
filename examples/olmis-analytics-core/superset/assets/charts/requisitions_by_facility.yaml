@@ -1,0 +1,36 @@
+slice_name: "Requisitions by Facility"
+viz_type: table
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000002"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000001"
+description: "Requisition counts per facility, showing facility name, program, and status."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: table
+  groupby:
+    - facility_name
+    - program_name
+    - status
+  metrics:
+    - expressionType: SIMPLE
+      column:
+        column_name: requisition_id
+        type: String
+      aggregate: COUNT
+      label: "Requisitions"
+  adhoc_filters: []
+  row_limit: 100
+  order_by_cols: []
+  server_pagination: false
+  order_desc: true
+  show_cell_bars: true
+  color_pn: true
+  table_timestamp_format: smart_date
+  page_length: 0
+  include_search: true
+  header_font_size: 0.6
+  cell_font_size: 0.6
+query_context: null

@@ -30,6 +30,7 @@ position:
     id: GRID_ID
     children:
       - ROW-requisitions-1
+      - ROW-requisitions-2
     parents:
       - ROOT_ID
   HEADER_ID:
@@ -61,3 +62,27 @@ position:
       width: 12
       sliceName: "Requisitions by Status"
       uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000001"
+  ROW-requisitions-2:
+    type: ROW
+    id: ROW-requisitions-2
+    children:
+      - CHART-req-facility-1
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-req-facility-1:
+    type: CHART
+    id: CHART-req-facility-1
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-requisitions-2
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Requisitions by Facility"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000002"

@@ -70,10 +70,7 @@ echo ""
 
 # Step 5: Check extension dashboard exists
 echo "--- Checking Superset dashboards ---"
-TOKEN=$(python3 -c "
-import json, sys
-payload = json.dumps({'username':'$SUPERSET_USER','password':'$SUPERSET_PASS','provider':'db','refresh':True})
-sys.stdout.write(payload)" | \
+TOKEN=$(python3 -c "import json,sys; print(json.dumps({'username':sys.argv[1],'password':sys.argv[2],'provider':'db','refresh':True}))" "$SUPERSET_USER" "$SUPERSET_PASS" | \
   curl -sf -X POST -H "Content-Type: application/json" -d @- \
     "http://${SUPERSET_HOST}:${SUPERSET_PORT}/api/v1/security/login" | \
   python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])" 2>/dev/null || echo "")

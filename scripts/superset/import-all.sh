@@ -80,19 +80,30 @@ if [ "$IMPORTED" -gt 0 ]; then
   # Fix dashboard chart references: import-dashboards resolves chartId
   # within a single bundle, but cross-bundle references (e.g., extension
   # charts) are left as chartId: 0. Patch by matching UUIDs to slice IDs.
+  # Loop because each UPDATE fixes one chart per dashboard — dashboards
+  # with multiple unresolved charts need multiple passes.
   echo "Patching dashboard chart references..."
   $COMPOSE_CMD exec -T superset-db psql -U superset -d superset -c "
-    UPDATE dashboards d
-    SET position_json = replace(
-      d.position_json,
-      '\"chartId\": 0, \"height\"',
-      '\"chartId\": ' || s.id || ', \"height\"'
-    )
-    FROM dashboard_slices ds
-    JOIN slices s ON ds.slice_id = s.id
-    WHERE ds.dashboard_id = d.id
-      AND d.position_json LIKE '%\"chartId\": 0%'
-      AND d.position_json LIKE '%' || s.uuid::text || '%';
+    DO \$\$
+    DECLARE
+      _fixed int;
+    BEGIN
+      LOOP
+        UPDATE dashboards d
+        SET position_json = replace(
+          d.position_json,
+          '\"chartId\": 0, \"height\"',
+          '\"chartId\": ' || s.id || ', \"height\"'
+        )
+        FROM dashboard_slices ds
+        JOIN slices s ON ds.slice_id = s.id
+        WHERE ds.dashboard_id = d.id
+          AND d.position_json LIKE '%\"chartId\": 0%'
+          AND d.position_json LIKE '%' || s.uuid::text || '%';
+        GET DIAGNOSTICS _fixed = ROW_COUNT;
+        EXIT WHEN _fixed = 0;
+      END LOOP;
+    END \$\$;
   " > /dev/null
   echo "  Chart references patched."
   echo ""

@@ -120,8 +120,16 @@ DOCKER_ARGS=(
 )
 
 # In local mode, mount package directories into the container.
-# In Git mode, dbt deps fetches from Git — no mounts needed.
-if [ -z "$GIT_MODE" ]; then
+# In Git mode, dbt deps fetches from Git — no mounts needed,
+# but file:// URLs need the host path mounted for local Git testing.
+if [ -n "$GIT_MODE" ]; then
+  for git_url in "$ANALYTICS_CORE_GIT_URL" $(echo "${ANALYTICS_EXTENSION_GIT_URLS:-}" | tr ',' ' '); do
+    if [[ "$git_url" == file://* ]]; then
+      local_path="${git_url#file://}"
+      DOCKER_ARGS+=(-v "$local_path:$local_path:ro")
+    fi
+  done
+elif [ -z "$GIT_MODE" ]; then
   CORE_ABS=$(resolve_path "$ANALYTICS_CORE_PATH")
   DOCKER_ARGS+=(-v "$CORE_ABS:/analytics/core:ro")
 

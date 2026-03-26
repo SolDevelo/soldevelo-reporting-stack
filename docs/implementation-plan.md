@@ -211,6 +211,100 @@ Requirements:
 
 Deliverables: extension example package + verification script + documentation.
 
+### Task 8.1 — Version upgrades: low-risk pins and patches
+
+Pin unpinned dependencies and apply patch-level upgrades. No behavioral changes expected.
+
+Requirements:
+
+1. Pin Superset pip packages in `superset/Dockerfile`:
+   - `clickhouse-connect==0.14.1`
+   - `psycopg2-binary==2.9.11`
+2. Bump Apicurio Registry: `3.0.6` → `3.0.8` (patch release).
+3. Pin PostgreSQL images: `postgres:16-alpine` → `postgres:16.13-alpine` for both `airflow-db` and `superset-db` (security patches).
+4. Verify all services start and `make verify-services` passes.
+
+Deliverables: updated Dockerfile + compose image tags. No config changes.
+
+### Task 8.2 — Version upgrades: Kafka UI and ClickHouse
+
+Replace the abandoned Kafka UI and upgrade ClickHouse to a supported LTS.
+
+**Kafka UI**: the `provectuslabs/kafka-ui` project is abandoned (last release Apr 2024). The active fork is `kafbat/kafka-ui` (v1.4.2, Nov 2025). Environment variables are compatible — only the image name changes.
+
+**ClickHouse**: 24.8 LTS is end-of-life. 25.8 is the current LTS line (Mar 2026). No breaking changes to Kafka engine DDL, JSONExtract functions, or `kafka_handle_error_mode = 'stream'`. Critical: ClickHouse 25.3+ ships librdkafka 2.8.0 which is required for Kafka 4.x protocol support (Task 8.3).
+
+Requirements:
+
+1. Replace `provectuslabs/kafka-ui:v0.7.2` with `kafbat/kafka-ui:v1.4.2` in compose. Environment variables stay the same.
+2. Upgrade `clickhouse/clickhouse-server:24.8-alpine` to `clickhouse/clickhouse-server:25.8-alpine`.
+3. Verify: Kafka UI connects and shows topics/consumers. ClickHouse Kafka engine tables consume correctly. `make verify-services && make verify-ingestion` passes.
+4. Run full `make setup` to confirm end-to-end pipeline with new versions.
+
+Deliverables: updated compose image tags + verification.
+
+### Task 8.3 — Version upgrades: Kafka 4.x + Confluent Platform 8.x + Debezium 3.x
+
+Upgrade the CDC pipeline to current major versions. These three components form a dependency chain and must be upgraded together:
+
+- Kafka 4.2 is KRaft-only (ZooKeeper fully removed — already using KRaft)
+- Confluent Platform 8.2 (`cp-kafka-connect`) ships JDK 21 and targets Kafka 4.2
+- Debezium 3.4 requires Java 17+ (met by CP 8.2's JDK 21) and has no connector config key changes vs 2.x
+- ClickHouse 25.3+ (from Task 8.2) has the librdkafka version needed for Kafka 4.x protocol
+
+**Why upgrade now**: Kafka 3.x is in maintenance mode. Debezium 2.x receives only critical fixes. Starting the platform on soon-to-be-EOL versions creates upgrade debt. The migration is simpler now (single DAG, five tables) than after production adoption.
+
+Requirements:
+
+1. Replace the custom `soldevelo/kafka:3.7` image:
+   - Evaluate using Confluent's `cp-kafka` image or building a new image based on the official Apache Kafka Docker image (available since Kafka 3.7+, `apache/kafka:4.2.0`).
+   - Configure for KRaft single-node (already the current mode).
+2. Upgrade `connect/Dockerfile`:
+   - Base image: `confluentinc/cp-kafka-connect:8.2.0`
+   - Debezium plugin: `3.4.2.Final` (PostgreSQL connector JARs)
+   - Apicurio converter: verify compatibility with Debezium 3.x or update version
+3. Re-register the connector with `make register-connector` — no config key changes expected between Debezium 2.x and 3.x for the PostgreSQL connector.
+4. Verify: `make verify-services && make verify-cdc && make verify-ingestion`. Confirm the CDC streaming check (heartbeat advancing) passes.
+5. Update compose header comments with new version references.
+
+Design notes:
+- The connector config (`openlmis-postgres-cdc.json`) should not need changes — Debezium 3.x kept the same property names for the PostgreSQL connector.
+- If Kafka UI (kafbat v1.4.2 from Task 8.2) does not yet support Kafka 4.x, monitor for a new release or accept a temporarily unhealthy Kafka UI until one ships.
+- Test that ClickHouse Kafka engine consumer groups work correctly with the new broker.
+
+Deliverables: new Kafka image + updated Connect Dockerfile + verified pipeline.
+
+### Task 8.4 — Version upgrades: Airflow 3.x
+
+Upgrade from Airflow 2.9.3 to 3.1.x. This is a major version with architectural changes but our usage is simple (one DAG, BashOperator, LocalExecutor).
+
+**Breaking changes that affect us:**
+- BashOperator moved to `airflow.providers.standard.operators.bash` (new import path)
+- REST API moved from `/api/v1` to `/api/v2` (affects `verify-airflow` script)
+- Health endpoint moved from `/health` to `/api/v2/monitor/health` (affects healthcheck in compose and verify script)
+- `airflow users create` replaced by SimpleAuthManager config or optional FAB provider
+- DAG imports: `from airflow.sdk` instead of `from airflow.models`
+- Context variables: `execution_date` removed (use `logical_date`)
+- Python 3.10+ required (currently using 3.12, so this is fine)
+
+**Why upgrade now**: Airflow 2.x will reach EOL. Our DAG is simple — one file, three tasks, BashOperator only. Migrating now (before adding more DAGs in Tasks 9-10) minimizes the surface area of changes.
+
+Requirements:
+
+1. Update `airflow/Dockerfile`: base image `apache/airflow:3.1.8-python3.12` (or latest 3.1.x). Install `apache-airflow-providers-standard` for BashOperator.
+2. Update `airflow/dags/platform_refresh.py`:
+   - Change imports to `airflow.sdk` / `airflow.providers.standard`
+   - Replace any deprecated context variables
+3. Update compose `airflow-init` command:
+   - Replace `airflow users create` with SimpleAuthManager config or install FAB provider
+   - Verify `airflow db migrate` still works
+4. Update compose healthchecks: `/health` → `/api/v2/monitor/health` for webserver.
+5. Update `scripts/verify/airflow.sh`: all API calls from `/api/v1` to `/api/v2`, health endpoint path.
+6. Update `docs/development.md` Airflow architecture section if service behavior changed.
+7. Verify: `make verify-airflow` passes. Trigger `platform_refresh` DAG and confirm dbt runs.
+
+Deliverables: updated Dockerfile + DAG + compose + verify script + docs.
+
 ---
 
 ## Post-MVP stages

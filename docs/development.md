@@ -43,7 +43,7 @@ curl -s http://localhost:${CLICKHOUSE_PORT:-8123}/ping
 
 ### verify-cdc
 
-Checks the Debezium connector is RUNNING and at least one CDC topic exists.
+Checks the Debezium connector is RUNNING, at least one CDC topic exists, and CDC streaming is active (heartbeat offset advancing). The streaming check takes ~12 seconds — it records the Kafka heartbeat topic offset, waits one heartbeat cycle, and verifies the offset advanced. This catches silent failures like an empty publication or a stale replication slot that other checks would miss.
 
 Connector management:
 

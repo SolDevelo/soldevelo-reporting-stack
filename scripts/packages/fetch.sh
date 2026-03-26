@@ -41,7 +41,8 @@ PACKAGES_DIR="$REPO_ROOT/.packages"
 if [ -z "$ANALYTICS_CORE_GIT_URL" ]; then
   echo "ANALYTICS_CORE_GIT_URL is not set — skipping Git fetch." >&2
   echo "Using local paths (ANALYTICS_CORE_PATH=${ANALYTICS_CORE_PATH:-examples/olmis-analytics-core})" >&2
-  exit 0
+  # return when sourced, exit when run directly
+  return 0 2>/dev/null || exit 0
 fi
 
 # Insert token into Git URL for private repos
@@ -67,8 +68,9 @@ clone_package() {
   auth_git_url=$(auth_url "$url")
 
   echo "  Cloning $(basename "$url" .git) @ $ref..."
+  # Suppress git stderr to avoid leaking GIT_TOKEN in error messages
   git clone --depth 1 --branch "$ref" --single-branch -q \
-    "$auth_git_url" "$target" 2>&1 || {
+    "$auth_git_url" "$target" 2>/dev/null || {
       echo "ERROR: failed to clone $url @ $ref" >&2
       exit 1
     }

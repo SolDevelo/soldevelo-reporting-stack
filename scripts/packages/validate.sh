@@ -83,9 +83,13 @@ for ext_path in "${EXT_PATHS[@]}"; do
   # Check 2: no dbt model name collisions
   if [ -d "$ext_path/dbt/models" ]; then
     EXT_MODELS=$(find "$ext_path/dbt/models" -name '*.sql' -exec basename {} .sql \; | sort)
-    COLLISIONS=$(comm -12 <(echo "$CORE_MODELS") <(echo "$EXT_MODELS"))
-    if [ -n "$COLLISIONS" ]; then
-      error "$ext_name: dbt model name collision with core: $(echo "$COLLISIONS" | tr '\n' ', ' | sed 's/,$//')"
+    if [ -n "$CORE_MODELS" ] && [ -n "$EXT_MODELS" ]; then
+      COLLISIONS=$(comm -12 <(printf '%s\n' "$CORE_MODELS") <(printf '%s\n' "$EXT_MODELS"))
+      if [ -n "$COLLISIONS" ]; then
+        error "$ext_name: dbt model name collision with core: $(echo "$COLLISIONS" | tr '\n' ', ' | sed 's/,$//')"
+      else
+        pass "$ext_name: no dbt model name collisions"
+      fi
     else
       pass "$ext_name: no dbt model name collisions"
     fi
@@ -95,10 +99,10 @@ for ext_path in "${EXT_PATHS[@]}"; do
 
   # Check 3: no Superset UUID collisions
   if [ -d "$ext_path/superset/assets" ]; then
-    EXT_UUIDS=$(grep -rh '^uuid:' "$ext_path/superset/assets/"*.yaml "$ext_path/superset/assets/"**/*.yaml 2>/dev/null \
+    EXT_UUIDS=$(grep -rh '^uuid:' "$ext_path/superset/assets/" 2>/dev/null \
       | sed 's/^uuid:[[:space:]]*//' | tr -d '"' | sort || true)
     if [ -n "$EXT_UUIDS" ] && [ -n "$CORE_UUIDS" ]; then
-      UUID_COLLISIONS=$(comm -12 <(echo "$CORE_UUIDS") <(echo "$EXT_UUIDS"))
+      UUID_COLLISIONS=$(comm -12 <(printf '%s\n' "$CORE_UUIDS") <(printf '%s\n' "$EXT_UUIDS"))
       if [ -n "$UUID_COLLISIONS" ]; then
         error "$ext_name: Superset UUID collision with core: $(echo "$UUID_COLLISIONS" | tr '\n' ', ' | sed 's/,$//')"
       else

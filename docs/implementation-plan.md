@@ -127,6 +127,46 @@ Requirements:
 
 Deliverables: compose services + Superset config + import scripts + example assets.
 
+### Task 6.5 — Documentation (Getting Started, Superset docs, usage guides)
+
+With Tasks 0–6 complete the full pipeline works end-to-end, but the user-facing documentation has not kept pace. The README Getting Started flow stops at `make setup` (CDC + ClickHouse raw landing) — it does not mention `make dbt-build` or `make superset-import`, so a user following it cannot reach a working dashboard. Superset was added with scripts and verification but zero user-facing documentation. There are no practical guides for developers who want to build their own reporting on this platform.
+
+This task goes here (before Task 7) because the README is broken now, and Task 7's "documented package contract" requirement will be cleaner to deliver if baseline docs already exist.
+
+Fixed choices:
+- README stays simple — zero-to-dashboard quickstart for adopters, links to deeper docs
+- New `docs/usage-guide.md` for practical developer how-tos (separate from `development.md` which is platform-contributor-focused)
+- `make setup` runs the full pipeline end-to-end: CDC + ClickHouse + dbt build + Superset import + verification
+- Usage guide references existing example files by path rather than duplicating code
+
+Requirements:
+
+1. Fix README Getting Started flow (`README.md`):
+   - Add Step 5: `make dbt-build` (transforms raw CDC events into curated marts)
+   - Add Step 6: `make superset-import` (loads dashboards from the analytics package)
+   - Add Step 7: direct the user to `http://localhost:8088` with default credentials
+   - Add `Superset` row to the Environment configuration table
+   - Add `docs/usage-guide.md` to the Documentation index table
+
+2. Add verify-superset section to `docs/development.md`:
+   - Add `verify-superset` to the verification targets table
+   - Document what it checks (health, API auth, database/dataset/chart/dashboard)
+   - Add manual Superset API checks (list dashboards, datasets)
+   - Add Superset architecture subsection: services, Dockerfile, assets-as-code workflow, secrets policy
+
+3. Create `docs/usage-guide.md` with four practical how-to sections:
+   - **Add a new source table end-to-end**: publication → allowlist → connector → ClickHouse → dbt staging → mart → Superset (10 steps)
+   - **Add a dbt model**: staging pattern (ranked CTE, JSON extraction, CDC semantics), mart pattern (joins, MergeTree), required tests
+   - **Add a Superset chart/dashboard**: author in UI → export → YAML structure → UUIDs → secrets policy → import → verify
+   - **Author an analytics package**: directory structure, core vs extension, extend-only rule, env vars, testing
+
+4. Expand `examples/olmis-analytics-core/README.md`:
+   - Full file listing with one-line descriptions
+   - Connector config, dbt model, and Superset asset overviews
+   - "Customizing for your project" section
+
+Deliverables: updated README + development guide + new usage guide + expanded package README.
+
 ### Task 7 — Package system formalization (manifest, Git sync, validation)
 
 Formalize the package loading mechanism so the platform can consume packages from local paths or pinned Git repositories.

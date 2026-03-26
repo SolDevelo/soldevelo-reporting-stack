@@ -17,7 +17,7 @@ make down        # stop all services
 make reset       # stop + wipe all volumes
 
 # Setup (run after make up)
-make setup       # register connector + init ClickHouse + verify (idempotent)
+make setup       # full pipeline: connector + ClickHouse + dbt + Superset + verify
 
 # Observe
 make ps          # running services
@@ -35,6 +35,7 @@ make verify-cdc         # Debezium connector + CDC topics exist
 make verify-ingestion   # ClickHouse raw landing has data
 make verify-dbt        # dbt build succeeds, curated marts have data
 make verify-airflow    # Airflow healthy, platform_refresh DAG registered
+make verify-superset   # Superset healthy, dashboard exists
 
 # ClickHouse
 make clickhouse-init   # create/update raw landing tables (idempotent)
@@ -42,6 +43,9 @@ make clickhouse-init   # create/update raw landing tables (idempotent)
 # dbt
 make dbt-build         # run dbt deps + build (Docker-based)
 make dbt-test          # run dbt tests only
+
+# Superset
+make superset-import   # import dashboards from analytics packages
 ```
 
 ## Architecture
@@ -58,7 +62,7 @@ Adopter PostgreSQL (external)
                           └─▶ Superset / Power BI (planned)
 ```
 
-Services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `apicurio`, `kafka-ui`, `clickhouse`, `airflow-db`, `airflow-init`, `airflow-scheduler`, `airflow-webserver`. All have healthchecks. `kafka-connect` depends on both `kafka` and `apicurio` being healthy before starting.
+Services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `apicurio`, `kafka-ui`, `clickhouse`, `airflow-db`, `airflow-init`, `airflow-scheduler`, `airflow-webserver`, `superset-db`, `superset-init`, `superset`. All have healthchecks. `kafka-connect` depends on both `kafka` and `apicurio` being healthy before starting.
 
 ## Platform + Packages Model
 
@@ -123,8 +127,9 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 - `docs/architecture.md` — architecture principles, design rationale, package contract
 - `docs/development.md` — developer workflow, step-by-step verification, debugging
 - `docs/source-db-setup.md` — source database configuration, WAL safety, network setup
+- `docs/usage-guide.md` — practical how-tos: add tables, dbt models, Superset charts, author packages
 - `docs/implementation-plan.md` — implementation task breakdown (Tasks 3–10)
 
 ## Implementation Status
 
-Tasks 0–5 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration) are complete. The full implementation plan (Tasks 6–10) is documented in `docs/implementation-plan.md`. Tasks 6–8 are MVP scope; Tasks 9–10 are post-MVP.
+Tasks 0–6.5 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation) are complete. The full implementation plan (Tasks 7–10) is documented in `docs/implementation-plan.md`. Tasks 7–8 are MVP scope; Tasks 9–10 are post-MVP.

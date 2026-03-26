@@ -13,8 +13,9 @@ Each target verifies a specific layer. Run them in order — each depends on the
 | `make verify-ingestion` | ClickHouse databases exist, events tables have rows |
 | `make verify-dbt` | dbt build succeeds, curated mart tables have rows |
 | `make verify-airflow` | Airflow webserver/scheduler healthy, platform_refresh DAG registered |
+| `make verify-superset` | Superset healthy, database/dataset/chart/dashboard imported |
 
-Or run all at once via `make setup` (idempotent — also re-registers the connector and re-inits ClickHouse). dbt is run separately via `make dbt-build` or `make verify-dbt`.
+Or run all at once via `make setup` (idempotent — re-registers the connector, re-inits ClickHouse, rebuilds dbt marts, and re-imports Superset assets).
 
 ### verify-services
 
@@ -199,6 +200,63 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 ```
 
 Set it in `.env` as `AIRFLOW__CORE__FERNET_KEY`.
+
+### verify-superset
+
+Checks that Superset is healthy and that assets have been imported. **Prerequisite**: run `make superset-import` before this verification will pass — unlike other services, Superset starts empty and assets must be explicitly imported.
+
+What it checks:
+- Superset health endpoint reachable
+- API authentication works (JWT via `/api/v1/security/login`)
+- At least one database, dataset, and chart registered
+- Dashboard "OLMIS Requisition Overview" exists
+
+Manual API checks:
+
+```bash
+# Get an API token
+TOKEN=$(curl -sf -X POST -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"changeme","provider":"db","refresh":true}' \
+  http://localhost:8088/api/v1/security/login \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# List databases
+curl -sf -H "Authorization: Bearer $TOKEN" http://localhost:8088/api/v1/database/ \
+  | python3 -c "import sys,json; [print(f'  {d[\"database_name\"]} ({d[\"backend\"]})') for d in json.load(sys.stdin)['result']]"
+
+# List dashboards
+curl -sf -H "Authorization: Bearer $TOKEN" http://localhost:8088/api/v1/dashboard/ \
+  | python3 -c "import sys,json; [print(f'  {d[\"dashboard_title\"]}') for d in json.load(sys.stdin)['result']]"
+```
+
+#### Superset architecture
+
+Superset runs as three containers:
+
+| Service | Purpose |
+|---|---|
+| `superset-db` | PostgreSQL 16 metadata database |
+| `superset-init` | One-shot: DB migrations + admin user creation |
+| `superset` | Web application at `http://localhost:8088` |
+
+The custom Dockerfile (`superset/Dockerfile`) extends Apache Superset 6.0.0 with the `clickhouse-connect` driver and a platform `superset_config.py` that configures the metadata database and feature flags. All secrets come from environment variables, never from the image.
+
+#### Assets-as-code workflow
+
+Superset dashboards, charts, datasets, and database connections are stored as **unzipped YAML** files in the analytics package's `superset/assets/` directory. This is the source of truth — the Superset metadata DB is the runtime store.
+
+The change workflow:
+
+1. **Author** in the Superset UI (create/edit charts and dashboards interactively)
+2. **Export** from the Superset UI or API (produces a ZIP of YAML files)
+3. **Unzip and commit** the YAML files to the analytics package repository via PR
+4. **Import** in target environments using `make superset-import`
+
+The import script (`scripts/superset/import-assets.sh`) ZIPs the YAML directory at runtime, imports via the `superset import-dashboards` CLI, then patches ClickHouse database credentials from environment variables. This ensures credentials never appear in Git.
+
+Import order: platform assets (optional) → core package → extension packages (layered, additive).
+
+For a step-by-step guide on creating new charts and dashboards, see [usage-guide.md](usage-guide.md#add-a-superset-chartdashboard).
 
 ## Source database setup
 

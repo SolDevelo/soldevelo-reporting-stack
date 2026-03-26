@@ -22,7 +22,7 @@ For architecture principles and design rationale, see [docs/architecture.md](doc
 - Docker Engine + Docker Compose plugin
 - Network access to the adopter's PostgreSQL database
 - PostgreSQL configured for logical replication — see [docs/source-db-setup.md](docs/source-db-setup.md)
-- **Minimum resources:** ~4 GB RAM for the reporting stack alone; ~6 GB when running alongside a typical adopter application. Disk usage depends on CDC volume and raw landing TTL (default 90 days)
+- **Minimum resources:** ~5 GB RAM for the reporting stack alone; ~7 GB when running alongside a typical adopter application. Disk usage depends on CDC volume and raw landing TTL (default 90 days)
 
 ## Getting started
 
@@ -75,7 +75,7 @@ This network allows Kafka Connect to reach the source database. If using the ref
 make up
 ```
 
-This starts Kafka, Kafka Connect, Apicurio Registry, Kafka UI, ClickHouse, and Airflow. Services need ~90 seconds to fully initialize (Kafka Connect is the slowest).
+This starts Kafka, Kafka Connect, Apicurio Registry, Kafka UI, ClickHouse, Airflow, and Superset. Services need ~90 seconds to fully initialize (Kafka Connect is the slowest).
 
 ### 4. Set up the pipeline
 
@@ -83,11 +83,20 @@ This starts Kafka, Kafka Connect, Apicurio Registry, Kafka UI, ClickHouse, and A
 make setup
 ```
 
-This single command:
+This single command configures the entire pipeline end-to-end:
 - Waits for all services to be healthy
 - Registers the Debezium CDC connector (captures changes from your database)
 - Creates ClickHouse databases and raw landing tables
-- Verifies the full pipeline is working
+- Waits for initial data to arrive
+- Builds curated marts with dbt (analytics-ready tables)
+- Imports Superset dashboards from the analytics package
+- Verifies the full pipeline
+
+### 5. View dashboards
+
+Open [http://localhost:8088](http://localhost:8088) and log in with the default credentials (`admin` / `changeme`). You should see the **OLMIS Requisition Overview** dashboard with data from your source database.
+
+After the initial setup, Airflow refreshes the curated marts automatically on a schedule (default: hourly). To refresh manually at any time, run `make dbt-build`. See [Data freshness](#data-freshness) for configuration.
 
 ### Troubleshooting
 
@@ -99,6 +108,14 @@ make verify-cdc         # Debezium connector + CDC topics
 make verify-ingestion   # ClickHouse raw landing tables
 make verify-dbt         # dbt build + curated mart tables
 make verify-airflow     # Airflow health + DAG registration
+make verify-superset    # Superset health + dashboard exists
+```
+
+Individual steps can also be run manually if needed:
+
+```bash
+make dbt-build          # rebuild curated marts
+make superset-import    # re-import Superset dashboards
 ```
 
 ## Service UIs
@@ -110,6 +127,7 @@ make verify-airflow     # Airflow health + DAG registration
 | Apicurio Registry | http://localhost:8085 | Schema governance |
 | ClickHouse HTTP | http://localhost:8123 | Query analytics data |
 | Airflow | http://localhost:8080 | DAG management and monitoring |
+| Superset | http://localhost:8088 | Dashboards and analytics |
 
 ## Common operations
 
@@ -118,10 +136,11 @@ make up          # start all services
 make down        # stop all services
 make ps          # show running services
 make logs        # tail all logs (SVC=kafka to filter)
-make setup       # configure pipeline (idempotent, run after make up)
+make setup       # full pipeline setup: CDC + ClickHouse + dbt + Superset (idempotent)
 make dbt-build   # run dbt transformations (builds curated marts)
 make reset       # ⚠ DESTRUCTIVE: stop and delete all data (Kafka, ClickHouse, Airflow)
 make build       # rebuild Docker images after changes
+make superset-import  # import Superset dashboards from analytics packages
 ```
 
 ## Environment configuration
@@ -132,9 +151,10 @@ Copy `.env.example` to `.env`. Key variable groups:
 |---|---|---|
 | Source database | `SOURCE_PG_HOST`, `SOURCE_PG_PORT`, `SOURCE_PG_DB`, `SOURCE_PG_USER`, `SOURCE_PG_PASSWORD` | PostgreSQL connection for CDC |
 | Debezium | `SOURCE_PG_SLOT_NAME`, `SOURCE_PG_PUBLICATION`, `DEBEZIUM_TOPIC_PREFIX`, `SOURCE_PG_TABLE_ALLOWLIST` | CDC connector settings |
-| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `APICURIO_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT`, `AIRFLOW_PORT` | Host port mappings (change if conflicts with other services) |
+| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `APICURIO_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT`, `AIRFLOW_PORT`, `SUPERSET_PORT` | Host port mappings (change if conflicts with other services) |
 | Data freshness | `AIRFLOW_REFRESH_SCHEDULE`, `FRESHNESS_MAX_AGE_MINUTES` | How often dashboards refresh (see below) |
 | Airflow | `AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD` | Orchestrator settings |
+| Superset | `SUPERSET_ADMIN_USER`, `SUPERSET_ADMIN_PASSWORD`, `SUPERSET_SECRET_KEY`, `SUPERSET_PORT`, `SUPERSET_DB_PASSWORD` | Visualization layer credentials and settings |
 | Analytics packages | `ANALYTICS_CORE_PATH`, `ANALYTICS_EXTENSIONS_PATHS` | Package loading (see below) |
 
 ## Analytics packages
@@ -170,7 +190,7 @@ For a detailed breakdown of latency at each pipeline layer, see [docs/architectu
 
 **Default credentials are for development only.** Before any production or internet-exposed deployment, change all passwords in `.env`: `SOURCE_PG_PASSWORD`, `CLICKHOUSE_PASSWORD`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_ADMIN_PASSWORD`, `SUPERSET_ADMIN_PASSWORD`, and `SUPERSET_SECRET_KEY`.
 
-**Service ports are exposed on the host.** By default, Kafka UI (9080), Kafka Connect (8083), ClickHouse (8123), and Airflow (8080) are accessible on all interfaces. In production, restrict access with firewall rules or bind to localhost only. Port variables (e.g., `AIRFLOW_PORT`) control host mappings — changing them does not affect inter-container communication.
+**Service ports are exposed on the host.** By default, Kafka UI (9080), Kafka Connect (8083), ClickHouse (8123), Airflow (8080), and Superset (8088) are accessible on all interfaces. In production, restrict access with firewall rules or bind to localhost only. Port variables (e.g., `AIRFLOW_PORT`) control host mappings — changing them does not affect inter-container communication.
 
 **Docker socket access.** The Airflow scheduler mounts `/var/run/docker.sock` to invoke dbt via Docker. This grants the container root-equivalent access to the Docker daemon. This is standard for CI/CD-style workloads but should be understood: a compromised Airflow scheduler could control any container on the host. In production, consider using a Docker socket proxy or running Airflow outside of Docker.
 
@@ -197,7 +217,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 | ClickHouse raw landing | Complete |
 | dbt transformations | Complete |
 | Airflow orchestration | Complete |
-| Superset + assets-as-code | Planned |
+| Superset + assets-as-code | Complete |
 | Package system formalization | Planned |
 | Extension example (Malawi) | Planned |
 | Bootstrap, backfill, slot recovery | Post-MVP |
@@ -212,6 +232,7 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for detailed task
 | [docs/architecture.md](docs/architecture.md) | Architecture principles, design rationale, package contract |
 | [docs/development.md](docs/development.md) | Developer workflow, step-by-step verification, debugging |
 | [docs/source-db-setup.md](docs/source-db-setup.md) | Source database configuration, WAL safety, network setup |
+| [docs/usage-guide.md](docs/usage-guide.md) | Practical how-tos: add tables, dbt models, Superset charts, author packages |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Implementation task breakdown (Tasks 3–10) |
 
 ## Contributing

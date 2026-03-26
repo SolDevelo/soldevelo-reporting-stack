@@ -1,0 +1,34 @@
+slice_name: "Malawi: Requisitions by Region"
+viz_type: echarts_timeseries_bar
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000011"
+version: "1.0.0"
+dataset_uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000010"
+description: "Requisition counts per geographic region in Malawi."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: region
+  metrics:
+    - expressionType: SIMPLE
+      column:
+        column_name: requisition_count
+        type: UInt64
+      aggregate: SUM
+      label: "Requisitions"
+  groupby:
+    - status
+  adhoc_filters: []
+  row_limit: 100
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Region
+  y_axis_title: Requisition Count
+  rich_tooltip: true
+  show_value: true
+query_context: null

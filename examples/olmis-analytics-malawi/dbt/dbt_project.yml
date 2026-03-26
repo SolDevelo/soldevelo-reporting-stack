@@ -1,0 +1,13 @@
+name: olmis_analytics_malawi
+version: '1.0.0'
+config-version: 2
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+
+models:
+  olmis_analytics_malawi:
+    marts:
+      +materialized: table
+      +schema: curated

@@ -36,6 +36,7 @@ make verify-ingestion   # ClickHouse raw landing has data
 make verify-dbt        # dbt build succeeds, curated marts have data
 make verify-airflow    # Airflow healthy, platform_refresh DAG registered
 make verify-superset   # Superset healthy, dashboard exists
+make verify-packages   # full package pipeline: validate + build + import + dashboards
 
 # ClickHouse
 make clickhouse-init   # create/update raw landing tables (idempotent)
@@ -136,4 +137,4 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 
 ## Implementation Status
 
-Tasks 0–7 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation + package system) are complete. The full implementation plan (Tasks 8–10) is documented in `docs/implementation-plan.md`. Task 8 is MVP scope; Tasks 8.1–8.4 are version upgrades; Tasks 9–10 are post-MVP.
+Tasks 0–8 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation + package system + extension example) are complete. The full implementation plan is documented in `docs/implementation-plan.md`. Tasks 8.1–8.4 are version upgrades; Tasks 9–10 are post-MVP.

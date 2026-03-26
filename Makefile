@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector superset-import package-fetch package-validate
+.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector superset-import package-fetch package-validate
 
 up: ## Start all services
 	$(COMPOSE_CMD) up -d
@@ -71,3 +71,6 @@ package-fetch: ## Fetch analytics packages from Git (requires ANALYTICS_CORE_GIT
 
 package-validate: ## Validate extension packages (extend-only enforcement)
 	@bash scripts/packages/validate.sh
+
+verify-packages: ## Verify analytics packages: validate + build + import + check dashboards
+	@bash scripts/verify/packages.sh

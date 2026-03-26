@@ -109,6 +109,7 @@ make verify-ingestion   # ClickHouse raw landing tables
 make verify-dbt         # dbt build + curated mart tables
 make verify-airflow     # Airflow health + DAG registration
 make verify-superset    # Superset health + dashboard exists
+make verify-packages    # Full package pipeline: validate + build + import + dashboards
 ```
 
 Individual steps can also be run manually if needed:
@@ -224,7 +225,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 | Airflow orchestration | Complete |
 | Superset + assets-as-code | Complete |
 | Package system formalization | Complete |
-| Extension example (Malawi) | Planned |
+| Extension example (Malawi) | Complete |
 | Bootstrap, backfill, slot recovery | Post-MVP |
 | Monitoring and alerting | Post-MVP |
 

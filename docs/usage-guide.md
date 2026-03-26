@@ -425,3 +425,33 @@ make superset-import      # import Superset assets
 make verify-dbt           # verify curated marts have data
 make verify-superset      # verify dashboards imported
 ```
+
+Or run the full pipeline in one command:
+
+```bash
+make verify-packages      # validate + build + import + check dashboards
+```
+
+### Create an extension package
+
+Extension packages add country-specific or domain-specific reports on top of a core package. See `examples/olmis-analytics-malawi/` for a complete working example.
+
+Key rules:
+- **No `connect/` directory** — ingestion is owned by the core package
+- **No `databases/` in Superset assets** — the database connection is imported by core
+- **No model name collisions** — your dbt model names must be unique (prefix with your country/domain)
+- **No UUID collisions** — Superset asset UUIDs must be unique across core and all extensions
+
+A typical extension contains:
+1. **A dbt mart** that reads from core marts (via `{{ ref('mart_...') }}`) and adds an aggregation or filter
+2. **Superset assets** with a dataset on the new mart, a chart, and a dashboard
+3. **Tests** in `schema.yml` — same requirements as core (not_null, accepted_values, etc.)
+
+To test your extension locally:
+
+```env
+ANALYTICS_CORE_PATH=examples/olmis-analytics-core
+ANALYTICS_EXTENSIONS_PATHS=path/to/your-extension
+```
+
+Then `make verify-packages` runs validation, dbt build, Superset import, and checks that your dashboard appears.

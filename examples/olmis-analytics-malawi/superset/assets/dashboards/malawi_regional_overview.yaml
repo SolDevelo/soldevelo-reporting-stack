@@ -1,0 +1,63 @@
+dashboard_title: "Malawi Regional Overview"
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000012"
+version: "1.0.0"
+description: "Malawi-specific requisition overview by geographic region."
+slug: malawi-regional-overview
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: false
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-malawi-1
+    parents:
+      - ROOT_ID
+  HEADER_ID:
+    type: HEADER
+    id: HEADER_ID
+    meta:
+      text: "Malawi Regional Overview"
+  ROW-malawi-1:
+    type: ROW
+    id: ROW-malawi-1
+    children:
+      - CHART-malawi-region-1
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-malawi-region-1:
+    type: CHART
+    id: CHART-malawi-region-1
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-malawi-1
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Malawi: Requisitions by Region"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000011"

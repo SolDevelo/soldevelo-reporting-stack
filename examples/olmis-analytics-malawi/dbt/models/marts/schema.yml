@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: mart_malawi_requisition_by_region
+    description: >
+      Malawi regional requisition summary: requisition counts aggregated
+      by geographic region, program, and status. Extension mart built on
+      top of the core package's mart_requisition_summary and mart_facility_directory.
+    columns:
+      - name: region
+        description: Geographic region (parent zone or zone if no parent)
+        tests:
+          - not_null
+      - name: program_name
+        description: Program name
+        tests:
+          - not_null
+      - name: status
+        description: Requisition workflow status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - INITIATED
+                  - SUBMITTED
+                  - AUTHORIZED
+                  - IN_APPROVAL
+                  - APPROVED
+                  - RELEASED
+                  - RELEASED_WITHOUT_ORDER
+                  - SKIPPED
+                  - REJECTED
+      - name: requisition_count
+        description: Number of requisitions
+        tests:
+          - not_null

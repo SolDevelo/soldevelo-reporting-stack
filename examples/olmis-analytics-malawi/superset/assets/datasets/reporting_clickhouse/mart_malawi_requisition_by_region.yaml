@@ -1,0 +1,74 @@
+table_name: mart_malawi_requisition_by_region
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000010"
+version: "1.0.0"
+database_uuid: "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+schema: curated
+main_dttm_col: null
+description: "Malawi regional requisition summary: counts by region, program, and status."
+default_endpoint: null
+offset: 0
+cache_timeout: null
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+is_managed_externally: false
+columns:
+  - column_name: region
+    verbose_name: Region
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: program_name
+    verbose_name: Program
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: status
+    verbose_name: Status
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: requisition_count
+    verbose_name: Requisition Count
+    is_dttm: false
+    is_active: true
+    type: UInt64
+    groupby: false
+    filterable: true
+    expression: null
+    description: null
+  - column_name: emergency_count
+    verbose_name: Emergency Count
+    is_dttm: false
+    is_active: true
+    type: UInt64
+    groupby: false
+    filterable: true
+    expression: null
+    description: null
+metrics:
+  - metric_name: total_requisitions
+    verbose_name: "Total Requisitions"
+    metric_type: null
+    expression: "SUM(requisition_count)"
+    description: Total number of requisitions across grouped rows
+    d3format: null
+    extra: null
+    warning_text: null

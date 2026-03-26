@@ -321,6 +321,7 @@ Extensions follow the **extend-only rule**: they may add new models and dashboar
 
 ```
 your-analytics-core/
+  manifest.yaml                  # package metadata (required)
   connect/
     your-connector.json          # Debezium connector config (core only)
   dbt/
@@ -334,6 +335,21 @@ your-analytics-core/
 ```
 
 See `examples/olmis-analytics-core/` for a complete reference implementation.
+
+### manifest.yaml
+
+Every package must include a `manifest.yaml`:
+
+```yaml
+name: your-analytics-core
+type: core                   # core or extension
+platform_version: ">=1.0.0"  # platform compatibility constraint
+description: "Your package description"
+includes:                    # which components the package provides
+  - connect                  # core only
+  - dbt
+  - superset
+```
 
 ### Connector config (core only)
 
@@ -355,23 +371,53 @@ test-paths: ["tests"]
 seed-paths: ["seeds"]
 ```
 
-The platform runner (`dbt/`) loads this as a local package — the model paths are resolved automatically.
+The platform runner (`dbt/`) loads this as a local package in development or fetches it from Git in production — the model paths are resolved automatically.
 
-### Register the package
+### Loading: local mode (development)
 
-Set the path in `.env`:
+Set filesystem paths in `.env`:
 
 ```env
-# Core package (required)
 ANALYTICS_CORE_PATH=path/to/your-analytics-core
-
 # Extensions (optional, comma-separated)
 ANALYTICS_EXTENSIONS_PATHS=path/to/extension-a,path/to/extension-b
 ```
 
+### Loading: Git mode (production)
+
+Set Git URLs in `.env`:
+
+```env
+ANALYTICS_CORE_GIT_URL=https://github.com/org/your-analytics-core.git
+ANALYTICS_CORE_GIT_REF=v1.0.0
+# Extensions (optional, comma-separated)
+ANALYTICS_EXTENSION_GIT_URLS=https://github.com/org/extension-a.git
+ANALYTICS_EXTENSION_GIT_REFS=v1.0.0
+# GIT_TOKEN=ghp_xxxx  # for private repos
+```
+
+Then fetch non-dbt components (connector config, Superset assets):
+
+```bash
+make package-fetch   # clones to .packages/, sets paths for downstream scripts
+```
+
+dbt fetches its own packages directly from Git during `make dbt-build` — no manual fetch needed for dbt models.
+
+### Validate extensions
+
+Run validation before deploying to catch extend-only rule violations:
+
+```bash
+make package-validate
+```
+
+This checks that extensions don't include `connect/`, don't collide on dbt model names, and don't reuse core Superset UUIDs.
+
 ### Test the package
 
 ```bash
+make package-validate     # validate extension rules (if extensions configured)
 make register-connector   # register CDC connector from core package
 make clickhouse-init      # create raw landing tables
 make dbt-build            # build dbt models

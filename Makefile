@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector superset-import
+.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector superset-import package-fetch package-validate
 
 up: ## Start all services
 	$(COMPOSE_CMD) up -d
@@ -65,3 +65,9 @@ superset-import: ## Import Superset assets (platform → core → extensions)
 
 verify-superset: ## Verify Superset is healthy and assets are imported
 	@bash scripts/verify/superset.sh
+
+package-fetch: ## Fetch analytics packages from Git (requires ANALYTICS_CORE_GIT_URL)
+	@bash scripts/packages/fetch.sh
+
+package-validate: ## Validate extension packages (extend-only enforcement)
+	@bash scripts/packages/validate.sh

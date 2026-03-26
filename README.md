@@ -155,7 +155,8 @@ Copy `.env.example` to `.env`. Key variable groups:
 | Data freshness | `AIRFLOW_REFRESH_SCHEDULE`, `FRESHNESS_MAX_AGE_MINUTES` | How often dashboards refresh (see below) |
 | Airflow | `AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD` | Orchestrator settings |
 | Superset | `SUPERSET_ADMIN_USER`, `SUPERSET_ADMIN_PASSWORD`, `SUPERSET_SECRET_KEY`, `SUPERSET_PORT`, `SUPERSET_DB_PASSWORD` | Visualization layer credentials and settings |
-| Analytics packages | `ANALYTICS_CORE_PATH`, `ANALYTICS_EXTENSIONS_PATHS` | Package loading (see below) |
+| Analytics packages (local) | `ANALYTICS_CORE_PATH`, `ANALYTICS_EXTENSIONS_PATHS` | Filesystem package paths (development) |
+| Analytics packages (Git) | `ANALYTICS_CORE_GIT_URL`, `ANALYTICS_CORE_GIT_REF`, `ANALYTICS_EXTENSION_GIT_URLS`, `ANALYTICS_EXTENSION_GIT_REFS`, `GIT_TOKEN` | Git-based package loading (production) |
 
 ## Analytics packages
 
@@ -164,7 +165,11 @@ Adopters provide domain-specific reporting logic via **analytics packages** — 
 - **Core package** (required): baseline connector config + models + dashboards
 - **Extension packages** (optional): additive-only — new models and dashboards, no modifications to core
 
-The built-in OLMIS example packages under `examples/` demonstrate the expected structure. Set `ANALYTICS_CORE_PATH` in `.env` to point to your package (default: `examples/olmis-analytics-core`).
+**Local mode** (development): set `ANALYTICS_CORE_PATH` in `.env` to a filesystem path (default: `examples/olmis-analytics-core`).
+
+**Git mode** (production): set `ANALYTICS_CORE_GIT_URL` and `ANALYTICS_CORE_GIT_REF` in `.env`. dbt fetches models directly from Git. Run `make package-fetch` to download connector config and Superset assets.
+
+Run `make package-validate` to enforce extend-only rules on extension packages.
 
 For the full package contract and governance model, see [docs/architecture.md](docs/architecture.md).
 
@@ -218,7 +223,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 | dbt transformations | Complete |
 | Airflow orchestration | Complete |
 | Superset + assets-as-code | Complete |
-| Package system formalization | Planned |
+| Package system formalization | Complete |
 | Extension example (Malawi) | Planned |
 | Bootstrap, backfill, slot recovery | Post-MVP |
 | Monitoring and alerting | Post-MVP |

@@ -46,6 +46,10 @@ make dbt-test          # run dbt tests only
 
 # Superset
 make superset-import   # import dashboards from analytics packages
+
+# Packages
+make package-fetch     # fetch packages from Git (requires ANALYTICS_CORE_GIT_URL)
+make package-validate  # validate extension packages (extend-only rules)
 ```
 
 ## Architecture
@@ -132,4 +136,4 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 
 ## Implementation Status
 
-Tasks 0–6.5 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation) are complete. The full implementation plan (Tasks 7–10) is documented in `docs/implementation-plan.md`. Tasks 7–8 are MVP scope; Tasks 9–10 are post-MVP.
+Tasks 0–7 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation + package system) are complete. The full implementation plan (Tasks 8–10) is documented in `docs/implementation-plan.md`. Task 8 is MVP scope; Tasks 8.1–8.4 are version upgrades; Tasks 9–10 are post-MVP.

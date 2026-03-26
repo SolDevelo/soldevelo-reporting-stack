@@ -47,18 +47,53 @@ CLICKHOUSE_PORT="${CLICKHOUSE_PORT:-8123}"
 CLICKHOUSE_USER="${CLICKHOUSE_USER:-default}"
 CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-changeme}"
 
-# Generate packages.yml using the local filesystem path (writable)
+# Determine loading mode: Git (production) vs local (development)
+ANALYTICS_CORE_GIT_URL="${ANALYTICS_CORE_GIT_URL:-}"
+ANALYTICS_CORE_GIT_REF="${ANALYTICS_CORE_GIT_REF:-main}"
+ANALYTICS_EXTENSION_GIT_URLS="${ANALYTICS_EXTENSION_GIT_URLS:-}"
+ANALYTICS_EXTENSION_GIT_REFS="${ANALYTICS_EXTENSION_GIT_REFS:-}"
+GIT_MODE=""
+if [ -n "$ANALYTICS_CORE_GIT_URL" ]; then
+  GIT_MODE=1
+fi
+
+# Generate packages.yml
 DBT_DIR="$SCRIPT_ROOT/dbt"
-cat > "$DBT_DIR/packages.yml" <<EOF
+
+if [ -n "$GIT_MODE" ]; then
+  # Git mode: dbt fetches packages directly from Git
+  cat > "$DBT_DIR/packages.yml" <<EOF
+packages:
+  - git: "${ANALYTICS_CORE_GIT_URL}"
+    revision: "${ANALYTICS_CORE_GIT_REF}"
+    subdirectory: "dbt"
+EOF
+
+  if [ -n "$ANALYTICS_EXTENSION_GIT_URLS" ]; then
+    IFS=',' read -ra EXT_URLS <<< "$ANALYTICS_EXTENSION_GIT_URLS"
+    IFS=',' read -ra EXT_REFS <<< "$ANALYTICS_EXTENSION_GIT_REFS"
+    for i in "${!EXT_URLS[@]}"; do
+      local_ref="${EXT_REFS[$i]:-main}"
+      cat >> "$DBT_DIR/packages.yml" <<EOF
+  - git: "$(echo "${EXT_URLS[$i]}" | xargs)"
+    revision: "$(echo "$local_ref" | xargs)"
+    subdirectory: "dbt"
+EOF
+    done
+  fi
+else
+  # Local mode: mount packages as Docker volumes
+  cat > "$DBT_DIR/packages.yml" <<EOF
 packages:
   - local: /analytics/core/dbt
 EOF
 
-if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
-  IFS=',' read -ra EXTENSIONS <<< "$ANALYTICS_EXTENSIONS_PATHS"
-  for i in "${!EXTENSIONS[@]}"; do
-    echo "  - local: /analytics/extensions/$i/dbt" >> "$DBT_DIR/packages.yml"
-  done
+  if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
+    IFS=',' read -ra EXTENSIONS <<< "$ANALYTICS_EXTENSIONS_PATHS"
+    for i in "${!EXTENSIONS[@]}"; do
+      echo "  - local: /analytics/extensions/$i/dbt" >> "$DBT_DIR/packages.yml"
+    done
+  fi
 fi
 
 # Docker build uses DOCKER_ROOT (host path for daemon to find build context)
@@ -75,8 +110,6 @@ resolve_path() {
   fi
 }
 
-CORE_ABS=$(resolve_path "$ANALYTICS_CORE_PATH")
-
 DOCKER_ARGS=(
   --rm
   --network "${COMPOSE_PROJECT}_reporting"
@@ -84,15 +117,21 @@ DOCKER_ARGS=(
   -e "CLICKHOUSE_PORT=${CLICKHOUSE_PORT}"
   -e "CLICKHOUSE_USER=${CLICKHOUSE_USER}"
   -e "CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}"
-  -v "$CORE_ABS:/analytics/core:ro"
 )
 
-if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
-  IFS=',' read -ra EXTENSIONS <<< "$ANALYTICS_EXTENSIONS_PATHS"
-  for i in "${!EXTENSIONS[@]}"; do
-    ext_abs=$(resolve_path "${EXTENSIONS[$i]}")
-    DOCKER_ARGS+=(-v "$ext_abs:/analytics/extensions/$i:ro")
-  done
+# In local mode, mount package directories into the container.
+# In Git mode, dbt deps fetches from Git — no mounts needed.
+if [ -z "$GIT_MODE" ]; then
+  CORE_ABS=$(resolve_path "$ANALYTICS_CORE_PATH")
+  DOCKER_ARGS+=(-v "$CORE_ABS:/analytics/core:ro")
+
+  if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
+    IFS=',' read -ra EXTENSIONS <<< "$ANALYTICS_EXTENSIONS_PATHS"
+    for i in "${!EXTENSIONS[@]}"; do
+      ext_abs=$(resolve_path "$(echo "${EXTENSIONS[$i]}" | xargs)")
+      DOCKER_ARGS+=(-v "$ext_abs:/analytics/extensions/$i:ro")
+    done
+  fi
 fi
 
 echo "Running dbt deps + ${DBT_CMD}..."

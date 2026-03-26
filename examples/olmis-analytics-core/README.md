@@ -8,6 +8,7 @@ In production, each adopter maintains their own analytics-core package in a sepa
 
 ```
 olmis-analytics-core/
+  manifest.yaml                   # Package metadata (name, type, includes)
   connect/
     openlmis-postgres-cdc.json    # Debezium connector config template
   dbt/
@@ -32,6 +33,22 @@ olmis-analytics-core/
       charts/requisitions_by_status.yaml         # Pie chart: requisitions by status
       dashboards/olmis_requisition_overview.yaml # Dashboard with the chart
 ```
+
+## manifest.yaml
+
+Declares the package identity and what it provides:
+
+```yaml
+name: olmis-analytics-core
+type: core                   # core package — provides ingestion config
+platform_version: ">=1.0.0"
+includes:
+  - connect                  # Debezium connector config
+  - dbt                      # dbt models and tests
+  - superset                 # Superset dashboard assets
+```
+
+See [docs/architecture.md](../../docs/architecture.md#manifestyaml) for the full schema.
 
 ## Connector config
 

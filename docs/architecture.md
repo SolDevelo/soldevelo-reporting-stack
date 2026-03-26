@@ -28,6 +28,7 @@ An analytics package is a Git repository (or local directory) with this layout:
 manifest.yaml              # name, type (core|extension), compatibility
 connect/                   # Debezium connector JSON templates (core only)
 dbt/
+  dbt_project.yml          # dbt package config
   models/                  # dbt models (staging, marts)
   tests/                   # dbt tests
   seeds/                   # dbt seed files
@@ -36,7 +37,37 @@ superset/
 README.md
 ```
 
-Packages are loaded via local paths (development) or pinned Git refs (production). See `examples/olmis-analytics-core/` for a reference implementation.
+### manifest.yaml
+
+Every package must include a `manifest.yaml` at its root:
+
+```yaml
+name: olmis-analytics-core
+type: core                   # core or extension
+platform_version: ">=1.0.0"  # platform compatibility constraint
+description: "..."
+includes:                    # which components the package provides
+  - connect                  # core only — extensions must not include this
+  - dbt
+  - superset
+```
+
+### Loading modes
+
+**Local mode** (development): set `ANALYTICS_CORE_PATH` and `ANALYTICS_EXTENSIONS_PATHS` in `.env` to filesystem paths. This is the default — the built-in examples under `examples/` work out of the box.
+
+**Git mode** (production): set `ANALYTICS_CORE_GIT_URL` and `ANALYTICS_CORE_GIT_REF` in `.env`. dbt uses its native `git:` package support to fetch models directly. For non-dbt components (connector config, Superset assets), run `make package-fetch` which clones repos to `.packages/`.
+
+### Extend-only rule
+
+Extensions may only **add** new assets. They must not:
+- Include a `connect/` directory (ingestion is owned by the core package)
+- Define dbt models with the same name as core models
+- Use Superset asset UUIDs that collide with core UUIDs
+
+Run `make package-validate` to enforce these rules.
+
+See `examples/olmis-analytics-core/` for a reference core package and `examples/olmis-analytics-malawi/` for a reference extension.
 
 ## Data flow
 

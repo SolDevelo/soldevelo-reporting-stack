@@ -258,6 +258,29 @@ Import order: platform assets (optional) → core package → extension packages
 
 For a step-by-step guide on creating new charts and dashboards, see [usage-guide.md](usage-guide.md#add-a-superset-chartdashboard).
 
+## Analytics packages
+
+### Package loading
+
+The platform supports two modes for loading analytics packages:
+
+**Local mode** (default): `ANALYTICS_CORE_PATH` points to a filesystem directory. Used during development with the built-in examples.
+
+**Git mode**: `ANALYTICS_CORE_GIT_URL` + `ANALYTICS_CORE_GIT_REF` trigger Git-based loading. dbt uses its native `git:` package support. For connector config and Superset assets, run `make package-fetch` which clones repos to `.packages/`.
+
+### Package validation
+
+`make package-validate` enforces the extend-only rule for extensions:
+- No `connect/` directory in extensions
+- No dbt model name collisions with core
+- No Superset UUID collisions with core
+
+Run this before deploying extension packages to catch violations early.
+
+### manifest.yaml
+
+Every package must include a `manifest.yaml` at its root with fields: `name`, `type` (core/extension), `platform_version`, `description`, and `includes` (list of component types). See [architecture.md](architecture.md#manifestyaml) for the schema.
+
 ## Source database setup
 
 See [source-db-setup.md](source-db-setup.md) for configuring the adopter's PostgreSQL database for CDC, including:

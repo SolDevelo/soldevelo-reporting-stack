@@ -44,6 +44,9 @@ docker-compose.override.yml
 # Node (if any tooling uses it)
 node_modules/
 
+# Fetched analytics packages (from scripts/packages/fetch.sh)
+.packages/
+
 # Misc
 *.log
 *.bak

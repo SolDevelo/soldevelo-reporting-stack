@@ -24,7 +24,11 @@ ANALYTICS_CORE_PATH="${ANALYTICS_CORE_PATH:-examples/olmis-analytics-core}"
 
 # Resolve connector template from analytics-core package
 # Look for the first .json file in the package's connect/ directory
-CONNECT_DIR="$REPO_ROOT/$ANALYTICS_CORE_PATH/connect"
+if [[ "$ANALYTICS_CORE_PATH" = /* ]]; then
+  CONNECT_DIR="$ANALYTICS_CORE_PATH/connect"
+else
+  CONNECT_DIR="$REPO_ROOT/$ANALYTICS_CORE_PATH/connect"
+fi
 if [ ! -d "$CONNECT_DIR" ]; then
   echo "ERROR: connector directory not found: $CONNECT_DIR" >&2
   exit 1

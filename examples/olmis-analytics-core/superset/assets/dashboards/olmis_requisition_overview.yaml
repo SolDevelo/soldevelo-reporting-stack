@@ -33,11 +33,6 @@ position:
       - ROW-requisitions-2
     parents:
       - ROOT_ID
-  HEADER_ID:
-    type: HEADER
-    id: HEADER_ID
-    meta:
-      text: "OLMIS Requisition Overview"
   ROW-requisitions-1:
     type: ROW
     id: ROW-requisitions-1

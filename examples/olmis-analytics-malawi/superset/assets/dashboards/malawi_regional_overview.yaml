@@ -32,11 +32,6 @@ position:
       - ROW-malawi-1
     parents:
       - ROOT_ID
-  HEADER_ID:
-    type: HEADER
-    id: HEADER_ID
-    meta:
-      text: "Malawi Regional Overview"
   ROW-malawi-1:
     type: ROW
     id: ROW-malawi-1

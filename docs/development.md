@@ -8,7 +8,7 @@ Each target verifies a specific layer. Run them in order — each depends on the
 
 | Target | What it checks |
 |---|---|
-| `make verify-services` | Kafka, Kafka Connect, Apicurio, Kafka UI, ClickHouse are healthy |
+| `make verify-services` | Kafka, Kafka Connect, Kafka UI, ClickHouse are healthy |
 | `make verify-cdc` | Debezium connector is RUNNING, CDC topics exist |
 | `make verify-ingestion` | ClickHouse databases exist, events tables have rows |
 | `make verify-dbt` | dbt build succeeds, curated mart tables have rows |
@@ -30,9 +30,6 @@ docker compose --env-file .env -f compose/docker-compose.yml exec kafka \
 
 # Kafka Connect REST API
 curl -s http://localhost:${CONNECT_PORT:-8083}/connectors
-
-# Apicurio Registry
-curl -s http://localhost:${APICURIO_PORT:-8085}/health
 
 # Kafka UI
 curl -s http://localhost:${KAFKA_UI_PORT:-9080}/ | head -5
@@ -57,7 +54,7 @@ The connector template is loaded from `${ANALYTICS_CORE_PATH}/connect/` (default
 
 #### Serialization
 
-Messages use JSON converters (not Avro) for ClickHouse compatibility. ClickHouse has documented issues with Apicurio's AvroConfluent endpoint. Apicurio remains in the stack for schema governance if other consumers need Avro.
+Messages use JSON converters (not Avro) for ClickHouse compatibility. JSON is natively supported by ClickHouse's Kafka engine and human-readable in Kafka UI. Schema evolution (column changes, new enum values) is caught by dbt tests (accepted_values, not_null) rather than a schema registry.
 
 #### Table allowlist
 

@@ -18,7 +18,7 @@
 
     "table.include.list": "${SOURCE_PG_TABLE_ALLOWLIST}",
 
-    "_comment.converters": "JSON converters chosen for ClickHouse compatibility. ClickHouse Kafka engine has documented issues with Apicurio AvroConfluent (wrong magic number, endpoint path mismatch). JSON is simpler, human-readable in Kafka UI, and natively supported by ClickHouse. Apicurio remains available for schema governance if other consumers need Avro.",
+    "_comment.converters": "JSON converters chosen for ClickHouse compatibility. JSON is natively supported by ClickHouse Kafka engine, human-readable in Kafka UI, and avoids the complexity of Avro schema management.",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "false",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",

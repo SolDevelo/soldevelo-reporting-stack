@@ -30,7 +30,7 @@ make connector-status     # show connector + task status
 make delete-connector     # remove connector
 
 # Verification (sequential)
-make verify-services    # Kafka, Connect, Apicurio, Kafka UI, ClickHouse health
+make verify-services    # Kafka, Connect, Kafka UI, ClickHouse health
 make verify-cdc         # Debezium connector + CDC topics exist
 make verify-ingestion   # ClickHouse raw landing has data
 make verify-dbt        # dbt build succeeds, curated marts have data
@@ -67,7 +67,7 @@ Adopter PostgreSQL (external)
                           └─▶ Superset / Power BI (planned)
 ```
 
-Services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `apicurio`, `kafka-ui`, `clickhouse`, `airflow-db`, `airflow-init`, `airflow-scheduler`, `airflow-webserver`, `superset-db`, `superset-init`, `superset`. All have healthchecks. `kafka-connect` depends on both `kafka` and `apicurio` being healthy before starting.
+Services in `compose/docker-compose.yml`: `kafka`, `kafka-connect`, `kafka-ui`, `clickhouse`, `airflow-db`, `airflow-init`, `airflow-scheduler`, `airflow-webserver`, `superset-db`, `superset-init`, `superset`. All have healthchecks. `kafka-connect` depends on `kafka` being healthy before starting.
 
 ## Platform + Packages Model
 

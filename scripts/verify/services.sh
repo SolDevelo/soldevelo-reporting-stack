@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Verify platform services are healthy.
-# Checks that Kafka, Kafka Connect, Apicurio, Kafka UI, and ClickHouse are reachable.
+# Checks that Kafka, Kafka Connect, Kafka UI, and ClickHouse are reachable.
 # =============================================================================
 set -euo pipefail
 
@@ -15,7 +15,6 @@ fi
 # Load ports from .env or fall back to defaults
 KAFKA_EXTERNAL_PORT="${KAFKA_EXTERNAL_PORT:-9094}"
 CONNECT_PORT="${CONNECT_PORT:-8083}"
-APICURIO_PORT="${APICURIO_PORT:-8085}"
 KAFKA_UI_PORT="${KAFKA_UI_PORT:-9080}"
 CLICKHOUSE_HOST="${CLICKHOUSE_HOST_EXTERNAL:-localhost}"
 CLICKHOUSE_PORT="${CLICKHOUSE_PORT:-8123}"
@@ -45,9 +44,6 @@ check "Kafka broker (external listener)" \
 
 check "Kafka Connect REST API" \
   "curl -sf http://localhost:${CONNECT_PORT}/connectors"
-
-check "Apicurio Registry health" \
-  "curl -sf http://localhost:${APICURIO_PORT}/health"
 
 check "Kafka UI" \
   "curl -sf http://localhost:${KAFKA_UI_PORT}/"

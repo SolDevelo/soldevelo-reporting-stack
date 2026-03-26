@@ -9,7 +9,6 @@ A reusable, open-source reporting platform maintained by SolDevelo. It connects 
 | Source | PostgreSQL (external, adopter-owned) |
 | Ingestion | Debezium CDC via Kafka Connect |
 | Transport | Apache Kafka (KRaft) |
-| Schema governance | Apicurio Registry |
 | Analytics store | ClickHouse (raw landing + curated marts) |
 | Transformations | dbt Core (ClickHouse adapter) |
 | Orchestration | Apache Airflow |
@@ -75,7 +74,7 @@ This network allows Kafka Connect to reach the source database. If using the ref
 make up
 ```
 
-This starts Kafka, Kafka Connect, Apicurio Registry, Kafka UI, ClickHouse, Airflow, and Superset. Services need ~90 seconds to fully initialize (Kafka Connect is the slowest).
+This starts Kafka, Kafka Connect, Kafka UI, ClickHouse, Airflow, and Superset. Services need ~90 seconds to fully initialize (Kafka Connect is the slowest).
 
 ### 4. Set up the pipeline
 
@@ -103,7 +102,7 @@ After the initial setup, Airflow refreshes the curated marts automatically on a 
 If `make setup` fails, run verification individually to find which layer is broken:
 
 ```bash
-make verify-services    # Kafka, Connect, Apicurio, Kafka UI, ClickHouse
+make verify-services    # Kafka, Connect, Kafka UI, ClickHouse
 make verify-cdc         # Debezium connector + CDC topics
 make verify-ingestion   # ClickHouse raw landing tables
 make verify-dbt         # dbt build + curated mart tables
@@ -125,7 +124,6 @@ make superset-import    # re-import Superset dashboards
 |---|---|---|
 | Kafka UI | http://localhost:9080 | Browse topics, messages, consumer groups |
 | Kafka Connect REST | http://localhost:8083 | Connector management API |
-| Apicurio Registry | http://localhost:8085 | Schema governance |
 | ClickHouse HTTP | http://localhost:8123 | Query analytics data |
 | Airflow | http://localhost:8080 | DAG management and monitoring |
 | Superset | http://localhost:8088 | Dashboards and analytics |
@@ -152,7 +150,7 @@ Copy `.env.example` to `.env`. Key variable groups:
 |---|---|---|
 | Source database | `SOURCE_PG_HOST`, `SOURCE_PG_PORT`, `SOURCE_PG_DB`, `SOURCE_PG_USER`, `SOURCE_PG_PASSWORD` | PostgreSQL connection for CDC |
 | Debezium | `SOURCE_PG_SLOT_NAME`, `SOURCE_PG_PUBLICATION`, `DEBEZIUM_TOPIC_PREFIX`, `SOURCE_PG_TABLE_ALLOWLIST` | CDC connector settings |
-| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `APICURIO_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT`, `AIRFLOW_PORT`, `SUPERSET_PORT` | Host port mappings (change if conflicts with other services) |
+| Service ports | `KAFKA_EXTERNAL_PORT`, `CONNECT_PORT`, `KAFKA_UI_PORT`, `CLICKHOUSE_PORT`, `AIRFLOW_PORT`, `SUPERSET_PORT` | Host port mappings (change if conflicts with other services) |
 | Data freshness | `AIRFLOW_REFRESH_SCHEDULE`, `FRESHNESS_MAX_AGE_MINUTES` | How often dashboards refresh (see below) |
 | Airflow | `AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD` | Orchestrator settings |
 | Superset | `SUPERSET_ADMIN_USER`, `SUPERSET_ADMIN_PASSWORD`, `SUPERSET_SECRET_KEY`, `SUPERSET_PORT`, `SUPERSET_DB_PASSWORD` | Visualization layer credentials and settings |
@@ -218,7 +216,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 
 | Task | Status |
 |---|---|
-| Base platform (Kafka, Connect, Apicurio, Kafka UI) | Complete |
+| Base platform (Kafka, Connect, Kafka UI) | Complete |
 | Debezium CDC ingestion | Complete |
 | ClickHouse raw landing | Complete |
 | dbt transformations | Complete |

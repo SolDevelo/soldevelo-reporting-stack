@@ -238,8 +238,7 @@ Requirements:
 1. Pin Superset pip packages in `superset/Dockerfile`:
    - `clickhouse-connect==0.14.1`
    - `psycopg2-binary==2.9.11`
-2. Bump Apicurio Registry: `3.0.6` → `3.0.8` (patch release).
-3. Pin PostgreSQL images: `postgres:16-alpine` → `postgres:16.13-alpine` for both `airflow-db` and `superset-db` (security patches).
+2. Pin PostgreSQL images: `postgres:16-alpine` → `postgres:16.13-alpine` for both `airflow-db` and `superset-db` (security patches).
 4. Verify all services start and `make verify-services` passes.
 
 Deliverables: updated Dockerfile + compose image tags. No config changes.
@@ -280,7 +279,6 @@ Requirements:
 2. Upgrade `connect/Dockerfile`:
    - Base image: `confluentinc/cp-kafka-connect:8.2.0`
    - Debezium plugin: `3.4.2.Final` (PostgreSQL connector JARs)
-   - Apicurio converter: verify compatibility with Debezium 3.x or update version
 3. Re-register the connector with `make register-connector` — no config key changes expected between Debezium 2.x and 3.x for the PostgreSQL connector.
 4. Verify: `make verify-services && make verify-cdc && make verify-ingestion`. Confirm the CDC streaming check (heartbeat advancing) passes.
 5. Update compose header comments with new version references.

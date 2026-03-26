@@ -31,6 +31,10 @@
     "snapshot.mode": "initial",
 
     "heartbeat.interval.ms": "10000",
-    "heartbeat.action.query": "INSERT INTO public.reporting_heartbeat (ts) VALUES (NOW()) ON CONFLICT (id) DO UPDATE SET ts = NOW()"
+    "heartbeat.action.query": "INSERT INTO public.reporting_heartbeat (ts) VALUES (NOW()) ON CONFLICT (id) DO UPDATE SET ts = NOW()",
+
+    "errors.retry.delay.max.ms": "60000",
+    "errors.retry.timeout": "300000",
+    "retriable.restart.connector.wait.ms": "10000"
   }
 }

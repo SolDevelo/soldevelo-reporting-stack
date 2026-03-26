@@ -167,30 +167,45 @@ Requirements:
 
 Deliverables: updated README + development guide + new usage guide + expanded package README.
 
-### Task 7 — Package system formalization (manifest, Git sync, validation)
+### Task 7 — Package system formalization (manifest, validation, Git loading)
 
 Formalize the package loading mechanism so the platform can consume packages from local paths or pinned Git repositories.
 
-By this point, `examples/olmis-analytics-core/` is a complete working package (connector + dbt + Superset). This task adds the formal contract and production-grade loading.
+By this point, `examples/olmis-analytics-core/` is a complete working package (connector + dbt + Superset). This task adds the formal contract, validation, and production-grade Git loading.
+
+Design decisions:
+- **Use dbt's native package system for dbt models.** dbt already supports `git:` packages with pinned `revision:` in `packages.yml`. The platform generates this file dynamically from env vars. For production, `scripts/dbt/run.sh` generates `git:` entries (with `subdirectory: "dbt"`) instead of `local:` mounts. `dbt deps` handles cloning, caching, and version pinning — no custom sync service needed.
+- **Lightweight Git fetch for non-dbt parts.** Connector config and Superset assets have no native package manager. A simple `scripts/packages/fetch.sh` shell script clones repos (shallow, pinned ref) to a local directory. No Docker service, no shared volume — just a script that runs before `register-connector` and `superset-import`.
+- **No custom `package-sync` Docker service.** The original plan proposed a one-shot container with shared volumes. This is over-engineering: dbt has its own mechanism, and the remaining components (one JSON file + YAML assets) don't justify a custom container. A shell script is simpler, easier to debug, and has no container orchestration dependencies.
+- **Local paths remain the default for development.** The `ANALYTICS_CORE_PATH` / `ANALYTICS_EXTENSIONS_PATHS` env vars still work for local development. Git loading is opt-in via `ANALYTICS_CORE_GIT_URL` / `ANALYTICS_CORE_GIT_REF`.
 
 Requirements:
 
 1. Define and document `manifest.yaml` schema:
-   - Fields: `name`, `type` (core|extension), `platform_version` (compatibility), `includes` (list of component types)
+   - Fields: `name`, `type` (core|extension), `platform_version` (compatibility), `includes` (list of component types: connect, dbt, superset)
 2. Add `manifest.yaml` to `examples/olmis-analytics-core/`.
-3. Add a documented package contract in `examples/olmis-analytics-core/README.md`.
-4. Implement `package-sync` service (one-shot container) for Git-based loading:
-   - Env vars: `ANALYTICS_CORE_GIT_URL`, `ANALYTICS_CORE_GIT_REF`, `ANALYTICS_EXTENSION_GIT_URLS` (comma-separated), `ANALYTICS_EXTENSION_GIT_REFS` (comma-separated), `GIT_TOKEN` (optional)
-   - Clones to a shared named volume under `/packages/core` and `/packages/extensions/<n>/`
-   - Writes `.sync_complete` with resolved commit SHAs
+3. Update `scripts/dbt/run.sh` to support two modes:
+   - **Local mode** (current): generates `local:` entries in `packages.yml` from `ANALYTICS_CORE_PATH` / `ANALYTICS_EXTENSIONS_PATHS`
+   - **Git mode**: when `ANALYTICS_CORE_GIT_URL` is set, generates `git:` entries with `revision:` and `subdirectory: "dbt"`. dbt handles cloning.
+4. Implement `scripts/packages/fetch.sh` for non-dbt Git loading:
+   - Env vars: `ANALYTICS_CORE_GIT_URL`, `ANALYTICS_CORE_GIT_REF`, `ANALYTICS_EXTENSION_GIT_URLS` (comma-separated), `ANALYTICS_EXTENSION_GIT_REFS` (comma-separated), `GIT_TOKEN` (optional, for private repos)
+   - Clones to `.packages/core/` and `.packages/extensions/<name>/` under the repo root
+   - Sets `ANALYTICS_CORE_PATH` and `ANALYTICS_EXTENSIONS_PATHS` for downstream scripts
+   - Shallow clone (`--depth 1 --branch <ref>`) for speed
 5. Implement `scripts/packages/validate.sh` (extend-only enforcement):
    - Fails if an extension defines a dbt model with the same name as a core model
    - Fails if an extension Superset asset UUID collides with a core UUID
    - Fails if an extension includes `connect/` (extensions must not change ingestion)
-6. Update platform scripts to respect `ANALYTICS_CORE_PATH` and `ANALYTICS_EXTENSIONS_PATHS` consistently across connector registration, dbt, and Superset import.
-7. Add Step 7 verification to README.
+6. Update `scripts/connect/register-connector.sh` and `scripts/superset/import-all.sh` to use paths set by `fetch.sh` when in Git mode.
+7. Add `.packages/` to `.gitignore`.
+8. Update documentation:
+   - `docs/architecture.md`: update package contract section with manifest schema and the two loading modes (local vs Git)
+   - `docs/usage-guide.md`: update "Author an analytics package" section with manifest.yaml details, Git loading instructions, and validation
+   - `examples/olmis-analytics-core/README.md`: add manifest.yaml documentation
+   - `docs/development.md`: add package verification section
+   - `README.md`: add package loading to Environment configuration table (Git URL env vars), update Analytics packages section
 
-Deliverables: manifest schema + package-sync service + validation scripts + documentation.
+Deliverables: manifest schema + fetch script + validation script + updated dbt runner + documentation.
 
 ### Task 8 — Extension example (olmis-analytics-malawi)
 
@@ -203,11 +218,14 @@ Requirements:
    - `dbt/`: one new mart model derived from the core mart (e.g., filtered view or aggregation), with tests
    - `superset/assets/`: dataset on the Malawi mart, one chart, one dashboard
    - `README.md` explaining it's an example extension
-2. `scripts/verify/step8.sh` supporting two modes:
+2. Verification script `scripts/verify/packages.sh` supporting two modes:
    - **Local mode**: `ANALYTICS_CORE_PATH=examples/olmis-analytics-core`, `ANALYTICS_EXTENSIONS_PATHS=examples/olmis-analytics-malawi`
-   - **Git mode**: uses package-sync to fetch from local Git repos under `examples/`
+   - **Git mode**: uses `fetch.sh` to fetch from local Git repos under `examples/`
    - Both modes: run validation → dbt build → confirm Malawi mart exists → import Superset assets → confirm Malawi dashboard exists
-3. Add Step 8 verification to README.
+3. Update documentation:
+   - `README.md`: add verification step for extension packages
+   - `docs/usage-guide.md`: add "Create an extension package" worked example referencing Malawi
+   - `examples/olmis-analytics-malawi/README.md`: explain it's an example extension with practical structure reference
 
 Deliverables: extension example package + verification script + documentation.
 

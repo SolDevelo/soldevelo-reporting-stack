@@ -1,0 +1,119 @@
+table_name: mart_requisition_summary
+uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000001"
+version: "1.0.0"
+database_uuid: "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+schema: curated
+main_dttm_col: created_date
+description: "Requisitions enriched with facility, program, and geographic zone names."
+default_endpoint: null
+offset: 0
+cache_timeout: null
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+is_managed_externally: false
+columns:
+  - column_name: requisition_id
+    verbose_name: Requisition ID
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: status
+    verbose_name: Status
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: emergency
+    verbose_name: Emergency
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: created_date
+    verbose_name: Created Date
+    is_dttm: true
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: modified_date
+    verbose_name: Modified Date
+    is_dttm: true
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: facility_code
+    verbose_name: Facility Code
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: facility_name
+    verbose_name: Facility Name
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: geographic_zone_name
+    verbose_name: Geographic Zone
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: program_code
+    verbose_name: Program Code
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: program_name
+    verbose_name: Program Name
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+metrics:
+  - metric_name: count
+    verbose_name: "COUNT(*)"
+    metric_type: count
+    expression: "COUNT(*)"
+    description: Total number of requisitions
+    d3format: null
+    extra: null
+    warning_text: null

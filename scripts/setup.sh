@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# One-shot setup: waits for services, registers the CDC connector, and
-# initializes ClickHouse raw landing tables.
+# One-shot setup: waits for services, registers CDC connector, initializes
+# ClickHouse, builds dbt curated marts, and imports Superset dashboards.
 #
 # Run after 'make up' to complete the platform configuration.
 # Idempotent — safe to run multiple times.
@@ -79,7 +79,17 @@ while [ "$ingest_elapsed" -lt "$ingest_max" ]; do
 done
 echo ""
 
-# Step 6: Quick verification
+# Step 6: Build curated marts (dbt)
+echo "Building curated marts (dbt)..."
+bash "$REPO_ROOT/scripts/dbt/build.sh"
+echo ""
+
+# Step 7: Import Superset dashboards
+echo "Importing Superset dashboards..."
+bash "$REPO_ROOT/scripts/superset/import-all.sh"
+echo ""
+
+# Step 8: Quick verification
 echo "Verifying..."
 echo ""
 bash "$REPO_ROOT/scripts/verify/services.sh"
@@ -89,3 +99,5 @@ echo ""
 bash "$REPO_ROOT/scripts/clickhouse/verify-ingestion.sh"
 echo ""
 echo "=== Setup complete ==="
+echo ""
+echo "Dashboards: http://localhost:${SUPERSET_PORT:-8088} (credentials in .env)"

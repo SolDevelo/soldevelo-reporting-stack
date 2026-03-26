@@ -1,0 +1,63 @@
+dashboard_title: "OLMIS Requisition Overview"
+uuid: "d1e2f3a4-b5c6-4d7e-8f9a-000000000001"
+version: "1.0.0"
+description: "Overview of requisition statuses across facilities and programs."
+slug: olmis-requisition-overview
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: false
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-requisitions-1
+    parents:
+      - ROOT_ID
+  HEADER_ID:
+    type: HEADER
+    id: HEADER_ID
+    meta:
+      text: "OLMIS Requisition Overview"
+  ROW-requisitions-1:
+    type: ROW
+    id: ROW-requisitions-1
+    children:
+      - CHART-req-status-1
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-req-status-1:
+    type: CHART
+    id: CHART-req-status-1
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-requisitions-1
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Requisitions by Status"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000001"

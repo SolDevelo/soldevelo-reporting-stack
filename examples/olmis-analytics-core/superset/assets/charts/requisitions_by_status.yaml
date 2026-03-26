@@ -1,0 +1,36 @@
+slice_name: "Requisitions by Status"
+viz_type: pie
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000001"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000001"
+description: "Distribution of requisitions by their current workflow status."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: pie
+  groupby:
+    - status
+  metric:
+    expressionType: SIMPLE
+    column:
+      column_name: requisition_id
+      type: String
+    aggregate: COUNT
+    label: "COUNT(requisition_id)"
+  adhoc_filters: []
+  row_limit: 100
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels: true
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  label_type: key_value_percent
+  number_format: SMART_NUMBER
+  date_format: smart_date
+  show_labels_threshold: 5
+  outerRadius: 70
+  innerRadius: 30
+query_context: null

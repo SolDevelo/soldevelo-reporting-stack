@@ -8,6 +8,7 @@
 #   Kafka UI:      provectuslabs/kafka-ui 0.7.2
 #   ClickHouse:    clickhouse/clickhouse-server 24.8-alpine
 #   Airflow:       apache/airflow 2.9.3 (LocalExecutor, PostgreSQL metadata)
+#   Superset:      apache/superset 6.0.0 (ClickHouse driver via clickhouse-connect)
 
 name: soldevelo-reporting-stack
 
@@ -26,6 +27,7 @@ volumes:
   clickhouse_data:
   airflow_db_data:
   airflow_logs:
+  superset_db_data:
 
 services:
   # ---------------------------------------------------------------------------
@@ -306,6 +308,84 @@ services:
     mem_limit: 768m
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # Superset metadata database
+  # ---------------------------------------------------------------------------
+  superset-db:
+    image: postgres:16-alpine
+    hostname: superset-db
+    networks:
+      - reporting
+    volumes:
+      - superset_db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: "${SUPERSET_DB_PASSWORD:-superset}"
+      POSTGRES_DB: superset
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Superset init (one-shot: DB migrations + admin user creation)
+  # ---------------------------------------------------------------------------
+  superset-init:
+    build:
+      context: ../superset
+      dockerfile: Dockerfile
+    image: soldevelo-reporting-stack/superset:latest
+    networks:
+      - reporting
+    depends_on:
+      superset-db:
+        condition: service_healthy
+    environment:
+      SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY:-replace-with-a-long-random-string}"
+      SUPERSET_DB_PASSWORD: "${SUPERSET_DB_PASSWORD:-superset}"
+      SUPERSET_ADMIN_USER: "${SUPERSET_ADMIN_USER:-admin}"
+      SUPERSET_ADMIN_PASSWORD: "${SUPERSET_ADMIN_PASSWORD:-changeme}"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        superset db upgrade
+        superset fab list-users 2>/dev/null | grep -qw "$${SUPERSET_ADMIN_USER}" || \
+          superset fab create-admin \
+            --username "$${SUPERSET_ADMIN_USER}" \
+            --password "$${SUPERSET_ADMIN_PASSWORD}" \
+            --firstname Admin --lastname User \
+            --email admin@example.com
+        superset init
+        echo "Superset init complete."
+    restart: "on-failure"
+
+  # ---------------------------------------------------------------------------
+  # Superset web application
+  # ---------------------------------------------------------------------------
+  superset:
+    image: soldevelo-reporting-stack/superset:latest
+    hostname: superset
+    networks:
+      - reporting
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    environment:
+      SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY:-replace-with-a-long-random-string}"
+      SUPERSET_DB_PASSWORD: "${SUPERSET_DB_PASSWORD:-superset}"
+    ports:
+      - "${SUPERSET_PORT:-8088}:8088"
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

@@ -341,6 +341,7 @@ services:
             --firstname Admin --lastname User \
             --email admin@example.com
         superset init
+        python /app/init-guest-permissions.py
         echo "Superset init complete."
     restart: "on-failure"
 
@@ -358,6 +359,8 @@ services:
     environment:
       SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY:-replace-with-a-long-random-string}"
       SUPERSET_DB_PASSWORD: "${SUPERSET_DB_PASSWORD:-superset}"
+      SUPERSET_EMBEDDING_ORIGINS: "${SUPERSET_EMBEDDING_ORIGINS:-}"
+      SUPERSET_GUEST_TOKEN_SECRET: "${SUPERSET_GUEST_TOKEN_SECRET:-}"
     ports:
       - "${SUPERSET_PORT:-8088}:8088"
     mem_limit: 1g

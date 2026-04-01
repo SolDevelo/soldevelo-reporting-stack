@@ -117,6 +117,7 @@ with DAG(
     schedule=SCHEDULE,
     start_date=datetime(2024, 1, 1),
     catchup=False,
+    is_paused_upon_creation=False,
     max_active_runs=1,
     tags=["reporting-platform", "dbt"],
 ) as dag:

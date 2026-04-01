@@ -8,4 +8,9 @@ USER superset
 
 # Platform configuration
 COPY superset_config.py /app/superset_config.py
+COPY init-guest-permissions.py /app/init-guest-permissions.py
 ENV SUPERSET_CONFIG_PATH=/app/superset_config.py
+
+# Superset Embedded SDK — served at /static/superset-embedded-sdk.js
+# Adopter UIs load this at runtime to embed dashboards via guest tokens.
+COPY superset-embedded-sdk.js /app/superset/static/superset-embedded-sdk.js

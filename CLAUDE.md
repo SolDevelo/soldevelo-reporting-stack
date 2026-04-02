@@ -137,4 +137,4 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 
 ## Implementation Status
 
-Tasks 0–8 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation + package system + extension example) are complete. The full implementation plan is documented in `docs/implementation-plan.md`. Tasks 8.1–8.4 are version upgrades; Tasks 9–10 are post-MVP.
+Tasks 0–8 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation + package system + extension example) are complete. The full implementation plan is documented in `docs/implementation-plan.md`. Next up: Task 8.5 (pipeline stability and self-healing), then Tasks 8.1–8.4 (version upgrades); Tasks 9–10 are post-MVP.

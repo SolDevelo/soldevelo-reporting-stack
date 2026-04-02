@@ -229,6 +229,63 @@ Requirements:
 
 Deliverables: extension example package + verification script + documentation.
 
+### Task 8.5 — Pipeline stability and self-healing
+
+Harden the reporting stack so it tolerates restarts, temporary disconnections, and startup ordering issues without manual intervention. Currently, if the source database restarts, Kafka Connect loses the connection, or the stacks start in the wrong order, the pipeline silently stops flowing and requires manual re-registration or script re-runs to recover.
+
+This task should be completed before version upgrades (Tasks 8.1–8.4) so that upgrade-related failures are distinguishable from pre-existing stability issues.
+
+**Phase A — Container restart policies and startup resilience:**
+
+1. Add `restart: unless-stopped` to all long-running services in `compose/docker-compose.yml` (kafka, kafka-connect, kafka-ui, clickhouse, airflow-scheduler, airflow-webserver, superset).
+2. Make `kafka-connect` tolerate late source DB availability — the Debezium connector already has retry settings, but if Connect itself starts before Kafka is fully ready or before the source DB is reachable, the connector registration can fail. Document that `make register-connector` is idempotent and safe to re-run.
+3. Add a `make recover` target that re-runs the minimum steps to restore a broken pipeline: verify services → re-register connector (idempotent) → verify CDC → verify ingestion. This is the "something broke, fix it" command.
+
+**Phase B — Connector auto-recovery:**
+
+4. Add a connector health watchdog script (`scripts/connect/watchdog.sh`) that:
+   - Polls connector status via `GET /connectors/{name}/status`
+   - If any task is in `FAILED` state, restarts it via `POST /connectors/{name}/tasks/{id}/restart`
+   - If the connector itself is missing (deleted or Connect restarted with lost state), re-registers it
+   - Logs actions taken
+5. Run the watchdog as a lightweight sidecar container or as a cron-style loop in the existing compose setup. Polling interval: 30s–60s.
+6. Add Debezium connector config setting `errors.tolerance: all` with `errors.deadletterqueue.topic.name` for a DLQ topic, so poisoned messages don't block the pipeline.
+
+**Phase C — Startup order independence:**
+
+7. Remove the hard requirement that ref-distro must start before the reporting stack. The reporting stack should start cleanly even if the source DB is not yet available — services wait and retry rather than fail.
+8. `kafka-connect` should handle "source DB not ready" gracefully: the connector registration fails but Connect itself stays healthy. The watchdog (from Phase B) re-attempts registration periodically.
+9. Document the supported startup scenarios in `docs/development.md`:
+   - Both stacks start together (normal)
+   - Reporting stack starts first, source DB comes later (must work)
+   - Source DB restarts while pipeline is running (must self-heal within retry window)
+
+**Phase D — Operational documentation:**
+
+10. Add `docs/operations.md` covering:
+    - Normal operation: what to expect, how to verify the pipeline is healthy
+    - Common failure scenarios and recovery steps:
+      - Source DB restarted → connector retries automatically (5 min window), then watchdog re-registers if needed
+      - Kafka Connect restarted → connectors auto-restore from internal topics; watchdog verifies
+      - Full stack restart → `make recover` restores the pipeline
+      - Replication slot invalidated → see Task 9 for full recovery
+    - `make recover` usage
+    - How to check if data is flowing: `make verify-cdc`, `make verify-ingestion`
+    - Monitoring recommendations (replication slot lag, connector status, ClickHouse row counts)
+
+**Requirements summary:**
+
+| # | Deliverable | Purpose |
+|---|---|---|
+| 1 | Restart policies on all services | Survive container crashes |
+| 2 | `make recover` target | One-command pipeline restoration |
+| 3 | Connector watchdog script + container | Auto-restart failed tasks, re-register lost connectors |
+| 4 | DLQ topic for poisoned messages | Prevent pipeline blockage from bad records |
+| 5 | Startup order independence | Both stacks can start in any order |
+| 6 | `docs/operations.md` | Runbook for common failure scenarios |
+
+Deliverables: compose changes + watchdog script + Makefile target + operations documentation.
+
 ### Task 8.1 — Version upgrades: low-risk pins and patches
 
 Pin unpinned dependencies and apply patch-level upgrades. No behavioral changes expected.

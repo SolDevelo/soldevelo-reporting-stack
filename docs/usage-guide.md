@@ -304,6 +304,70 @@ make verify-superset    # checks health + dashboard exists
 
 See `examples/olmis-analytics-core/superset/assets/` for a complete working asset bundle.
 
+## Embed a Superset dashboard
+
+Superset dashboards can be embedded in an adopter's web application (e.g., OpenLMIS UI) using the Superset Embedded SDK. Embedded dashboards use **guest tokens** for authentication — end users never need Superset credentials.
+
+### How it works
+
+1. The adopter UI loads the Superset Embedded SDK from `SUPERSET_URL/static/superset-embedded-sdk.js`
+2. The adopter backend requests a **guest token** from Superset's `/api/v1/security/guest_token/` endpoint, authenticating with the admin service account
+3. The SDK renders the dashboard in an iframe, authenticated by the guest token
+4. Tokens expire after 5 minutes and are automatically refreshed by the SDK
+
+### Configuration
+
+Set the following in `.env`:
+
+```bash
+# Origin(s) of the application embedding Superset (e.g., the OLMIS UI URL).
+# Controls CORS, CSP frame-ancestors, and embedded dashboard allowed_domains.
+# Leave empty to disable embedding entirely.
+SUPERSET_EMBEDDING_ORIGINS=http://your-olmis-host
+
+# JWT secret for guest tokens (defaults to SUPERSET_SECRET_KEY if unset).
+# Use a dedicated secret in production.
+SUPERSET_GUEST_TOKEN_SECRET=replace-with-a-random-string
+```
+
+`SUPERSET_EMBEDDING_ORIGINS` drives three security layers:
+
+| Layer | What it does |
+|---|---|
+| **CORS** | Allows the embedding origin to call Superset APIs (`/api/*`, `/static/*`) |
+| **CSP `frame-ancestors`** | Allows the embedding origin to load Superset in an iframe |
+| **`allowed_domains`** | Per-dashboard allowlist in Superset DB, synced by `make superset-import` |
+
+After changing `SUPERSET_EMBEDDING_ORIGINS`, restart Superset and re-run the import:
+
+```bash
+make superset-import    # patches allowed_domains in DB from SUPERSET_EMBEDDING_ORIGINS
+docker compose --env-file .env -f compose/docker-compose.yml restart superset
+```
+
+### Enable embedding on a dashboard
+
+Each dashboard must be individually configured for embedding in the Superset UI:
+
+1. Open the dashboard in Superset → `...` menu → **Embed dashboard**
+2. Add the embedding origin to the allowed domains list
+3. Copy the **embedded UUID** — the adopter backend needs this to request guest tokens
+
+The `make superset-import` step automatically syncs the allowed domains from `SUPERSET_EMBEDDING_ORIGINS`, so you only need to set them manually during initial setup in the UI.
+
+### Guest token permissions
+
+The `superset/init-guest-permissions.py` script runs on every Superset startup and grants the **Public** role the permissions needed for guest token access (dashboard read, chart read, dataset read, etc.). No manual permission setup is required.
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| 403 on `/embedded/{uuid}` | `allowed_domains` doesn't include the embedding origin | Re-run `make superset-import` or update in Superset UI |
+| CORS error in browser console | `SUPERSET_EMBEDDING_ORIGINS` not set or wrong | Update `.env`, restart Superset |
+| "Failed to load Superset SDK" | Embedding origin can't reach Superset | Check network connectivity and `SUPERSET_URL` |
+| Guest token request fails (401) | Wrong admin credentials | Check `SUPERSET_ADMIN_USER` / `SUPERSET_ADMIN_PASSWORD` |
+
 ## Author an analytics package
 
 An analytics package provides domain-specific reporting logic for a particular adopter system. The platform loads packages at runtime via environment variables.

@@ -236,7 +236,7 @@ Superset runs as three containers:
 | `superset-init` | One-shot: DB migrations + admin user creation |
 | `superset` | Web application at `http://localhost:8088` |
 
-The custom Dockerfile (`superset/Dockerfile`) extends Apache Superset 6.0.0 with the `clickhouse-connect` driver and a platform `superset_config.py` that configures the metadata database and feature flags. All secrets come from environment variables, never from the image.
+The custom Dockerfile (`superset/Dockerfile`) extends Apache Superset 6.0.0 with the `clickhouse-connect` driver, a guest-permissions init script, and the Superset Embedded SDK JS. The platform `superset_config.py` configures the metadata database, feature flags, and — when `SUPERSET_EMBEDDING_ORIGINS` is set — CORS, CSP (`frame-ancestors`), and guest token authentication for embedded dashboards. All secrets come from environment variables, never from the image.
 
 #### Assets-as-code workflow
 
@@ -249,7 +249,7 @@ The change workflow:
 3. **Unzip and commit** the YAML files to the analytics package repository via PR
 4. **Import** in target environments using `make superset-import`
 
-The import script (`scripts/superset/import-assets.sh`) ZIPs the YAML directory at runtime, imports via the `superset import-dashboards` CLI, then patches ClickHouse database credentials from environment variables. This ensures credentials never appear in Git.
+The import script (`scripts/superset/import-assets.sh`) ZIPs the YAML directory at runtime and imports via the `superset import-dashboards` CLI. The orchestrating script (`scripts/superset/import-all.sh`) then patches ClickHouse database credentials and embedded dashboard `allowed_domains` from environment variables (`CLICKHOUSE_PASSWORD`, `SUPERSET_EMBEDDING_ORIGINS`). This ensures credentials and environment-specific config never appear in Git.
 
 Import order: platform assets (optional) → core package → extension packages (layered, additive).
 

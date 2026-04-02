@@ -106,6 +106,19 @@ if [ "$IMPORTED" -gt 0 ]; then
     END \$\$;
   " > /dev/null
   echo "  Chart references patched."
+
+  # Sync embedded dashboard allowed_domains from SUPERSET_EMBEDDING_ORIGINS.
+  # The import-dashboards CLI does not set allowed_domains, so this ensures
+  # embedded dashboards accept requests from the configured origins.
+  SUPERSET_EMBEDDING_ORIGINS="${SUPERSET_EMBEDDING_ORIGINS:-}"
+  if [ -n "$SUPERSET_EMBEDDING_ORIGINS" ]; then
+    echo "Patching embedded dashboard allowed_domains → ${SUPERSET_EMBEDDING_ORIGINS}..."
+    $COMPOSE_CMD exec -T superset-db psql -U superset -d superset \
+      -v origins="$SUPERSET_EMBEDDING_ORIGINS" \
+      -c "UPDATE embedded_dashboards SET allow_domain_list = :'origins';" \
+      > /dev/null
+    echo "  Allowed domains patched."
+  fi
   echo ""
 fi
 

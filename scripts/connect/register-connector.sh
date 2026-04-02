@@ -19,7 +19,7 @@ if [ -f "$REPO_ROOT/.env" ]; then
 fi
 
 CONNECT_PORT="${CONNECT_PORT:-8083}"
-CONNECT_URL="http://localhost:${CONNECT_PORT}"
+CONNECT_URL="${CONNECT_URL:-http://localhost:${CONNECT_PORT}}"
 ANALYTICS_CORE_PATH="${ANALYTICS_CORE_PATH:-examples/olmis-analytics-core}"
 
 # Resolve connector template from analytics-core package

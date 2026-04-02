@@ -1,9 +1,11 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector superset-import package-fetch package-validate
+.PHONY: up down ps logs restart reset build setup recover verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector superset-import package-fetch package-validate
 
 up: ## Start all services
+	@docker network inspect reporting-shared > /dev/null 2>&1 || \
+		docker network create --label com.docker.compose.network=reporting-shared reporting-shared > /dev/null
 	$(COMPOSE_CMD) up -d
 
 down: ## Stop all services
@@ -26,6 +28,9 @@ build: ## Build/rebuild service images (or SVC=<name>)
 
 setup: ## Configure platform: register connector + init ClickHouse + verify
 	@bash scripts/setup.sh
+
+recover: ## Restore a broken pipeline: verify services, re-register connector, restart failed tasks, verify CDC + ingestion
+	@bash scripts/recover.sh
 
 verify-services: ## Verify platform services are healthy (Kafka, Connect, Apicurio, Kafka UI, ClickHouse)
 	@bash scripts/verify/services.sh

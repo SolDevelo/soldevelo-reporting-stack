@@ -69,12 +69,13 @@ if [ "$IMPORTED" -gt 0 ]; then
   CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-changeme}"
   CLICKHOUSE_USER="${CLICKHOUSE_USER:-default}"
   CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-clickhouse}"
-  CH_URI="clickhousedb+connect://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@${CLICKHOUSE_HOST}:8123/curated"
+  ESCAPED_CH_USER=$(printf '%s' "$CLICKHOUSE_USER" | sed "s/'/''/g")
+  ESCAPED_CH_PASS=$(printf '%s' "$CLICKHOUSE_PASSWORD" | sed "s/'/''/g")
+  CH_URI="clickhousedb+connect://${ESCAPED_CH_USER}:${ESCAPED_CH_PASS}@${CLICKHOUSE_HOST}:8123/curated"
 
   echo "Patching ClickHouse database connection credentials..."
-  $COMPOSE_CMD exec -T superset-db psql -U superset -d superset -c \
-    "UPDATE dbs SET sqlalchemy_uri = '${CH_URI}' WHERE LOWER(sqlalchemy_uri) LIKE '%clickhouse%';" \
-    > /dev/null
+  echo "UPDATE dbs SET sqlalchemy_uri = '${CH_URI}' WHERE LOWER(sqlalchemy_uri) LIKE '%clickhouse%';" \
+    | $COMPOSE_CMD exec -T superset-db psql -U superset -d superset > /dev/null
   echo "  Password patch complete."
 
   # Fix dashboard chart references: import-dashboards resolves chartId
@@ -113,10 +114,9 @@ if [ "$IMPORTED" -gt 0 ]; then
   SUPERSET_EMBEDDING_ORIGINS="${SUPERSET_EMBEDDING_ORIGINS:-}"
   if [ -n "$SUPERSET_EMBEDDING_ORIGINS" ]; then
     echo "Patching embedded dashboard allowed_domains → ${SUPERSET_EMBEDDING_ORIGINS}..."
-    $COMPOSE_CMD exec -T superset-db psql -U superset -d superset \
-      -v origins="$SUPERSET_EMBEDDING_ORIGINS" \
-      -c "UPDATE embedded_dashboards SET allow_domain_list = :'origins';" \
-      > /dev/null
+    ESCAPED_ORIGINS=$(printf '%s' "$SUPERSET_EMBEDDING_ORIGINS" | sed "s/'/''/g")
+    echo "UPDATE embedded_dashboards SET allow_domain_list = '${ESCAPED_ORIGINS}';" \
+      | $COMPOSE_CMD exec -T superset-db psql -U superset -d superset > /dev/null
     echo "  Allowed domains patched."
   fi
   echo ""

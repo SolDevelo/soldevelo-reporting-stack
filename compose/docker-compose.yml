@@ -35,6 +35,7 @@ services:
   kafka:
     image: soldevelo/kafka:3.7
     hostname: kafka
+    restart: unless-stopped
     networks:
       - reporting
     ports:
@@ -77,6 +78,7 @@ services:
       dockerfile: Dockerfile
     image: soldevelo-reporting-stack/kafka-connect:latest
     hostname: kafka-connect
+    restart: unless-stopped
     networks:
       - reporting
       - reporting-shared
@@ -108,11 +110,37 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
+  # Connector watchdog — auto-restarts failed Debezium tasks and re-registers
+  # the connector if missing. Polls every 30s (configurable).
+  # ---------------------------------------------------------------------------
+  connect-watchdog:
+    image: python:3.12-alpine
+    hostname: connect-watchdog
+    restart: unless-stopped
+    networks:
+      - reporting
+    depends_on:
+      kafka-connect:
+        condition: service_healthy
+    env_file: ../.env
+    environment:
+      WATCHDOG_INTERVAL: "${WATCHDOG_INTERVAL:-30}"
+      CONNECT_URL: "http://kafka-connect:8083"
+    volumes:
+      - ../scripts:/opt/scripts:ro
+      - ../examples:/opt/examples:ro
+      - ../.env:/opt/.env:ro
+    working_dir: /opt
+    entrypoint: ["sh", "-c", "apk add --no-cache bash curl gettext && exec bash /opt/scripts/connect/watchdog.sh"]
+    mem_limit: 64m
+
+  # ---------------------------------------------------------------------------
   # Kafka UI (Provectus)
   # ---------------------------------------------------------------------------
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
     hostname: kafka-ui
+    restart: unless-stopped
     networks:
       - reporting
     depends_on:
@@ -141,6 +169,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.8-alpine
     hostname: clickhouse
+    restart: unless-stopped
     networks:
       - reporting
     depends_on:
@@ -169,6 +198,7 @@ services:
   airflow-db:
     image: postgres:16-alpine
     hostname: airflow-db
+    restart: unless-stopped
     networks:
       - reporting
     volumes:
@@ -227,6 +257,7 @@ services:
   airflow-scheduler:
     image: soldevelo-reporting-stack/airflow:latest
     hostname: airflow-scheduler
+    restart: unless-stopped
     networks:
       - reporting
     depends_on:
@@ -261,6 +292,7 @@ services:
   airflow-webserver:
     image: soldevelo-reporting-stack/airflow:latest
     hostname: airflow-webserver
+    restart: unless-stopped
     networks:
       - reporting
     depends_on:
@@ -296,6 +328,7 @@ services:
   superset-db:
     image: postgres:16-alpine
     hostname: superset-db
+    restart: unless-stopped
     networks:
       - reporting
     volumes:
@@ -351,6 +384,7 @@ services:
   superset:
     image: soldevelo-reporting-stack/superset:latest
     hostname: superset
+    restart: unless-stopped
     networks:
       - reporting
     depends_on:

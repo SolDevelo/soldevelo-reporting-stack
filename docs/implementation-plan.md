@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Tasks 0–2.5 (base platform + Debezium CDC + folder restructure) are complete. The plan below covers MVP delivery (Tasks 3–8) and post-MVP stages (Tasks 9–10).
+Tasks 0–8.5 (base platform + Debezium CDC + folder restructure + ClickHouse + dbt + Airflow + Superset + docs + packages + extension example + pipeline stability) are complete. The plan below covers MVP delivery (Tasks 3–8.5) and post-MVP stages (Tasks 9–10).
 
 Each task from 3 onward incrementally builds the OLMIS example packages under `examples/` alongside the platform components they exercise. By the end of Task 6, `examples/olmis-analytics-core/` is a complete working reference package. Tasks 7–8 formalize the package system and add the extension example.
 

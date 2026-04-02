@@ -286,6 +286,39 @@ See [source-db-setup.md](source-db-setup.md) for configuring the adopter's Postg
 - Network connectivity options
 - Slot invalidation recovery
 
+## Startup order and recovery
+
+The reporting stack tolerates starting before or after the source database stack. The `make up` command creates the `reporting-shared` Docker network if it doesn't already exist, so the reporting stack can start independently.
+
+### Supported startup scenarios
+
+| Scenario | Behavior |
+|---|---|
+| Source DB starts first, then reporting stack | Normal flow. `make setup` registers the connector immediately. |
+| Reporting stack starts first, source DB starts later | Services start normally. Connector registration fails during `make setup` because the DB is unreachable. Run `make setup` or `make recover` once the source DB is up. The **watchdog** will also auto-register the connector once Connect can reach the DB. |
+| Source DB restarts while pipeline is running | Debezium retries for 5 minutes (`errors.retry.timeout`). If the DB recovers within that window, CDC resumes automatically. If not, the connector task enters `FAILED` state and the watchdog restarts it. |
+| Full stack restart (both stacks) | `make up` followed by `make recover` restores the pipeline. |
+
+### Connector watchdog
+
+The `connect-watchdog` service runs alongside Kafka Connect and polls the connector status every 30 seconds (configurable via `WATCHDOG_INTERVAL`). It automatically:
+- Restarts any `FAILED` connector tasks
+- Re-registers the connector if it is missing (e.g., after Connect storage topic loss)
+
+### Manual recovery
+
+If the pipeline stops flowing and the watchdog hasn't resolved it:
+
+```bash
+make recover    # verifies services, restarts failed tasks, re-registers if needed, checks CDC
+```
+
+For a full re-setup (e.g., after `make reset`):
+
+```bash
+make up && make setup
+```
+
 ## Developer workflow
 
 1. Make changes to platform code

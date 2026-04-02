@@ -12,7 +12,7 @@ fi
 
 CONNECT_PORT="${CONNECT_PORT:-8083}"
 CONNECT_URL="http://localhost:${CONNECT_PORT}"
-CONNECTOR_NAME="openlmis-postgres-cdc"
+CONNECTOR_NAME="${DEBEZIUM_CONNECTOR_NAME:-openlmis-postgres-cdc}"
 DEBEZIUM_TOPIC_PREFIX="${DEBEZIUM_TOPIC_PREFIX:-openlmis}"
 
 PASS=0

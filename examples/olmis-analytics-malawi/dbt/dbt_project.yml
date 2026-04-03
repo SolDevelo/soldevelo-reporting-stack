@@ -6,6 +6,10 @@ model-paths: ["models"]
 seed-paths: ["seeds"]
 test-paths: ["tests"]
 
+seeds:
+  olmis_analytics_malawi:
+    +schema: curated
+
 models:
   olmis_analytics_malawi:
     marts:

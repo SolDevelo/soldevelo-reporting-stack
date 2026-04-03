@@ -1,0 +1,37 @@
+slice_name: "Malawi: Stockout Rate by Health Program"
+viz_type: echarts_timeseries_line
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000021"
+version: "1.0.0"
+dataset_uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+description: "Stockout rate trends over time, broken down by Malawi health program."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_line
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SQL
+      sqlExpression: "AVG(combined_stockout)"
+      label: "Stockout Rate"
+  groupby:
+    - malawi_program
+  adhoc_filters: []
+  row_limit: 1000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Period
+  y_axis_title: Stockout Rate
+  y_axis_format: ".0%"
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  markerEnabled: true
+  markerSize: 6
+  zoomable: true
+query_context: null

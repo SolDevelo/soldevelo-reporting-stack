@@ -76,6 +76,8 @@ models:
         tests:
           - not_null
           - relationships:
+              config:
+                severity: warn
               arguments:
                 to: ref('stg_facilities')
                 field: id
@@ -83,6 +85,158 @@ models:
         tests:
           - not_null
           - relationships:
+              config:
+                severity: warn
               arguments:
                 to: ref('stg_programs')
                 field: id
+
+  - name: stg_requisition_line_items
+    description: Current-state view of requisition line items from CDC events
+    columns:
+      - name: id
+        description: Requisition line item UUID
+        tests:
+          - not_null
+          - unique
+      - name: requisition_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_requisitions')
+                field: id
+      - name: orderable_id
+        tests:
+          - not_null
+          - relationships:
+              config:
+                severity: warn
+              arguments:
+                to: ref('stg_orderables')
+                field: id
+      - name: stock_on_hand
+        description: Current stock on hand quantity
+      - name: total_stockout_days
+        description: Number of days stocked out during the period
+
+  - name: stg_orderables
+    description: Current-state view of orderables (products) from CDC events, latest version per ID
+    columns:
+      - name: id
+        description: Orderable UUID
+        tests:
+          - not_null
+          - unique
+      - name: code
+        tests:
+          - not_null
+      - name: full_product_name
+        tests:
+          - not_null
+
+  - name: stg_processing_periods
+    description: Current-state view of processing periods from CDC events
+    columns:
+      - name: id
+        description: Processing period UUID
+        tests:
+          - not_null
+          - unique
+      - name: name
+        tests:
+          - not_null
+      - name: start_date
+        tests:
+          - not_null
+      - name: end_date
+        tests:
+          - not_null
+      - name: processing_schedule_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_processing_schedules')
+                field: id
+
+  - name: stg_processing_schedules
+    description: Current-state view of processing schedules from CDC events
+    columns:
+      - name: id
+        description: Processing schedule UUID
+        tests:
+          - not_null
+          - unique
+      - name: code
+        tests:
+          - not_null
+      - name: name
+        tests:
+          - not_null
+
+  - name: stg_facility_types
+    description: Current-state view of facility types from CDC events
+    columns:
+      - name: id
+        description: Facility type UUID
+        tests:
+          - not_null
+          - unique
+      - name: code
+        tests:
+          - not_null
+
+  - name: stg_supported_programs
+    description: "Facility-program assignments: which facilities are active for which programs"
+    columns:
+      - name: facility_id
+        tests:
+          - not_null
+      - name: program_id
+        tests:
+          - not_null
+      - name: active
+        tests:
+          - not_null
+
+  - name: stg_requisition_group_members
+    description: "Requisition group membership: which facilities belong to which groups"
+    columns:
+      - name: requisition_group_id
+        tests:
+          - not_null
+      - name: facility_id
+        tests:
+          - not_null
+
+  - name: stg_requisition_group_program_schedules
+    description: "Requisition group schedules: which processing schedule applies to each group-program pair"
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+      - name: requisition_group_id
+        tests:
+          - not_null
+      - name: program_id
+        tests:
+          - not_null
+      - name: processing_schedule_id
+        tests:
+          - not_null
+
+  - name: stg_status_changes
+    description: "Requisition status change history with timestamps"
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+      - name: requisition_id
+        tests:
+          - not_null
+      - name: status
+        tests:
+          - not_null

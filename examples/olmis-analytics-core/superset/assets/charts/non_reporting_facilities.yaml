@@ -1,0 +1,37 @@
+slice_name: "Non Reporting Facilities"
+viz_type: table
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000015"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000020"
+description: "Active facilities that did not submit a requisition for the selected period. These are reporting blind spots with no stock visibility."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: table
+  groupby:
+    - facility_name
+    - program_name
+    - period_name
+    - zone_name
+  metrics:
+    - expressionType: SIMPLE
+      column:
+        column_name: reporting_status
+        type: String
+      aggregate: COUNT
+      label: "Missed Reports"
+  adhoc_filters: []
+  row_limit: 50
+  order_by_cols: []
+  server_pagination: false
+  order_desc: true
+  show_cell_bars: false
+  color_pn: false
+  table_timestamp_format: smart_date
+  page_length: 10
+  include_search: true
+  header_font_size: 0.6
+  cell_font_size: 0.6
+query_context: null

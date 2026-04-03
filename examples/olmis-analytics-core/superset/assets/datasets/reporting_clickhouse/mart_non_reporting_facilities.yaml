@@ -1,0 +1,101 @@
+table_name: mart_non_reporting_facilities
+uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000020"
+version: "1.0.0"
+database_uuid: "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+schema: curated
+main_dttm_col: period_end_date
+description: "Active facilities that did not submit a requisition for a given program and period."
+default_endpoint: null
+offset: 0
+cache_timeout: null
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+is_managed_externally: false
+columns:
+  - column_name: facility_name
+    verbose_name: Facility
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: facility_type_name
+    verbose_name: Facility Type
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: zone_name
+    verbose_name: District
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: parent_zone_name
+    verbose_name: Region
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: program_name
+    verbose_name: Program
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_name
+    verbose_name: Period
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_end_date
+    verbose_name: Period End Date
+    is_dttm: true
+    is_active: true
+    type: Date
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: reporting_status
+    verbose_name: Reporting Status
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+metrics:
+  - metric_name: count
+    verbose_name: "COUNT(*)"
+    metric_type: count
+    expression: "COUNT(*)"
+    description: Number of non-reporting facility-program-period combinations
+    d3format: null
+    extra: null
+    warning_text: null

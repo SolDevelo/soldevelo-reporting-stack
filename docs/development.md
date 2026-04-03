@@ -62,8 +62,9 @@ The default allowlist (`SOURCE_PG_TABLE_ALLOWLIST` in `.env`) captures a small s
 
 1. Update `SOURCE_PG_TABLE_ALLOWLIST` in `.env`
 2. Add the tables to the PostgreSQL publication (see [source-db-setup.md](source-db-setup.md))
-3. Re-register: `make register-connector`
-4. Re-init ClickHouse: `make clickhouse-init`
+3. Refresh the connector: `make connector-refresh`
+
+**Important**: use `make connector-refresh`, not `make register-connector`. A simple re-register updates the config but does not load existing data from the new tables (Debezium skips the snapshot if it has a stored offset). `connector-refresh` resets the offset and triggers a fresh snapshot of all tables. See [usage-guide.md](usage-guide.md#3-refresh-the-cdc-connector-with-snapshot) for details.
 
 ### ClickHouse raw landing configuration
 

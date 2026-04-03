@@ -145,7 +145,7 @@ docker compose exec -T db psql -U postgres -d open_lmis \
 If empty, the tables were lost (e.g., DB container was recreated). Re-add them:
 ```bash
 docker compose exec -T db psql -U postgres -d open_lmis \
-  -c "ALTER PUBLICATION dbz_publication ADD TABLE referencedata.facilities, referencedata.programs, referencedata.geographic_zones, requisition.requisitions, requisition.requisition_line_items;"
+  -c "ALTER PUBLICATION dbz_publication ADD TABLE referencedata.facilities, referencedata.programs, referencedata.geographic_zones, referencedata.orderables, referencedata.processing_periods, referencedata.processing_schedules, referencedata.facility_types, referencedata.supported_programs, referencedata.requisition_group_members, referencedata.requisition_group_program_schedules, requisition.requisitions, requisition.requisition_line_items, requisition.status_changes;"
 ```
 Then restart the connector task: `curl -X POST http://localhost:8083/connectors/openlmis-postgres-cdc/tasks/0/restart`
 

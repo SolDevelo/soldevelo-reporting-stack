@@ -28,25 +28,21 @@ In `.env`, append the table to `SOURCE_PG_TABLE_ALLOWLIST`:
 SOURCE_PG_TABLE_ALLOWLIST=referencedata.facilities,...,referencedata.orderable_display_categories
 ```
 
-### 3. Re-register the CDC connector
+### 3. Refresh the CDC connector (with snapshot)
 
 ```bash
-make register-connector
+make connector-refresh
 ```
 
-This updates the Debezium connector config with the new table. The connector will begin capturing changes and produce a new Kafka topic (e.g., `openlmis.referencedata.orderable_display_categories`).
+**Important**: a simple `make register-connector` only updates the connector config — it does **not** load existing data from newly added tables. This is because Debezium's stored offset tells it the initial snapshot already completed. `make connector-refresh` resets the offset and triggers a fresh snapshot of all tables.
 
-### 4. Re-initialize ClickHouse raw landing
+This command: stops the connector → resets stored offsets → deletes and re-registers → re-initializes ClickHouse raw landing → waits for the snapshot → verifies ingestion.
 
-```bash
-make clickhouse-init
-```
+Existing data in ClickHouse raw tables is not lost (append-only). The snapshot produces duplicate rows for previously captured tables, but dbt staging views deduplicate via `row_number()`.
 
-This creates the Kafka engine table, MergeTree storage table, and Materialized View for the new topic. Existing tables are not affected (idempotent).
+### 4. Verify data arrives
 
-### 5. Verify data arrives
-
-Wait a few seconds for Debezium's initial snapshot, then check:
+Check that the new table has data:
 
 ```bash
 make verify-ingestion
@@ -55,30 +51,31 @@ make verify-ingestion
 Or query ClickHouse directly:
 
 ```bash
-curl -s "http://localhost:8123/" --user "default:changeme" \
+source .env && curl -s "http://localhost:${CLICKHOUSE_PORT}" \
+  --user "${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}" \
   --data-binary "SELECT count() FROM raw.events_openlmis_referencedata_orderable_display_categories"
 ```
 
-### 6. Create a dbt staging model
+### 5. Create a dbt staging model
 
 Create a new file in your analytics package's `dbt/models/staging/` directory. See [Add a dbt model](#add-a-dbt-model) below for the pattern.
 
-### 7. Add tests
+### 6. Add tests
 
 Add the model to `dbt/models/staging/schema.yml` with at minimum `not_null` and `unique` on the primary key. See [Required tests](#required-tests) below.
 
-### 8. Create or update a mart model
+### 7. Create or update a mart model
 
 If the new table feeds an existing mart, update it to join the new staging model. If it's a new reporting domain, create a new mart in `dbt/models/marts/`. See [Mart models](#mart-models) below.
 
-### 9. Build and verify
+### 8. Build and verify
 
 ```bash
 make dbt-build
 make verify-dbt
 ```
 
-### 10. Add a Superset visualization (optional)
+### 9. Add a Superset visualization (optional)
 
 Create a dataset, chart, and/or dashboard for the new data. See [Add a Superset chart/dashboard](#add-a-superset-chartdashboard) below.
 
@@ -135,7 +132,21 @@ Key points:
 - **Type casting**: `toUUID()` / `toUUIDOrNull()` for UUID columns, standard ClickHouse cast functions for others
 - **Materialized as `view`** — staging models are lightweight and always read current data
 
-See `examples/olmis-analytics-core/dbt/models/staging/stg_facilities.sql` for a complete working example.
+**CDC data type gotchas:**
+
+| PostgreSQL type | CDC representation | ClickHouse extraction |
+|---|---|---|
+| `uuid`, `varchar`, `text` | JSON string | `JSONExtractString(after, 'col')` |
+| `integer`, `bigint` | JSON number | `JSONExtractInt(after, 'col')` |
+| `numeric`, `double` | JSON number | `JSONExtractFloat(after, 'col')` |
+| `boolean` | JSON boolean | `JSONExtractBool(after, 'col')` |
+| `date` | **Integer (days since epoch)** | `toDate(toDate('1970-01-01') + JSONExtractInt(after, 'col'))` |
+| `timestamp` | **Integer (milliseconds since epoch)** | `fromUnixTimestamp64Milli(JSONExtractInt(after, 'col'))` |
+| `timestamptz` | **String (ISO 8601)** | `parseDateTimeBestEffortOrNull(JSONExtractString(after, 'col'))` |
+
+The `date` and `timestamp` representations are a common gotcha — Debezium converts them to epoch integers, not strings. Using `parseDateTimeBestEffortOrNull` on an epoch integer returns NULL.
+
+See `examples/olmis-analytics-core/dbt/models/staging/stg_facilities.sql` for a complete working example, and `stg_processing_periods.sql` for date column handling.
 
 ### Mart models
 
@@ -166,8 +177,9 @@ Key points:
 - **`order_by`** should match common query patterns (filter/group columns first)
 - Use `{{ ref('stg_...') }}` to reference staging models (dbt manages dependencies)
 - Column names in marts are the public contract — renaming is a breaking change
+- **Nullable columns in `order_by`**: LEFT JOINs produce nullable columns. MergeTree rejects these in sorting keys by default. Either use non-nullable columns in `order_by`, or add `settings={'allow_nullable_key': 1}` to the config
 
-See `examples/olmis-analytics-core/dbt/models/marts/mart_requisition_summary.sql` for a complete example.
+See `examples/olmis-analytics-core/dbt/models/marts/mart_requisition_summary.sql` for a simple example and `mart_stock_status.sql` for a more complex mart with multiple joins and computed columns.
 
 ### Required tests
 
@@ -502,7 +514,7 @@ Extension packages add country-specific or domain-specific reports on top of a c
 
 Key rules:
 - **No `connect/` directory** — ingestion is owned by the core package
-- **No `databases/` in Superset assets** — the database connection is imported by core
+- **Include the same `databases/` YAML as core** — Superset's import CLI requires the database definition in each bundle to resolve dataset references. Copy the core's `databases/reporting_clickhouse.yaml` into your extension. Using the same UUID ensures it updates the existing connection rather than creating a duplicate.
 - **No model name collisions** — your dbt model names must be unique (prefix with your country/domain)
 - **No UUID collisions** — Superset asset UUIDs must be unique across core and all extensions
 

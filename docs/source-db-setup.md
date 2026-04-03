@@ -37,8 +37,16 @@ CREATE PUBLICATION dbz_publication FOR TABLE
   referencedata.facilities,
   referencedata.programs,
   referencedata.geographic_zones,
+  referencedata.orderables,
+  referencedata.processing_periods,
+  referencedata.processing_schedules,
+  referencedata.facility_types,
+  referencedata.supported_programs,
+  referencedata.requisition_group_members,
+  referencedata.requisition_group_program_schedules,
   requisition.requisitions,
-  requisition.requisition_line_items;
+  requisition.requisition_line_items,
+  requisition.status_changes;
 
 -- 2. Create a heartbeat table to prevent WAL bloat during idle periods.
 CREATE TABLE IF NOT EXISTS public.reporting_heartbeat (

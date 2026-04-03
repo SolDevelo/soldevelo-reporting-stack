@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup recover verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector superset-import package-fetch package-validate
+.PHONY: up down ps logs restart reset build setup recover verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh superset-import package-fetch package-validate
 
 up: ## Start all services
 	@docker network inspect reporting-shared > /dev/null 2>&1 || \
@@ -64,6 +64,9 @@ connector-status: ## Show CDC connector status
 
 delete-connector: ## Delete the CDC connector
 	@bash scripts/connect/delete-connector.sh
+
+connector-refresh: ## Reset connector offsets and re-snapshot all tables (use after adding new tables)
+	@bash scripts/connect/refresh-connector.sh
 
 superset-import: ## Import Superset assets (platform → core → extensions)
 	@bash scripts/superset/import-all.sh

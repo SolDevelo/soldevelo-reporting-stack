@@ -26,9 +26,10 @@ make logs        # tail all logs (SVC=kafka to filter)
 make build       # rebuild Docker images
 
 # Connector management
-make register-connector   # create/update CDC connector
-make connector-status     # show connector + task status
-make delete-connector     # remove connector
+make register-connector    # create/update CDC connector
+make connector-status      # show connector + task status
+make delete-connector      # remove connector
+make connector-refresh     # reset offsets + re-snapshot (use after adding tables)
 
 # Verification (sequential)
 make verify-services    # Kafka, Connect, Kafka UI, ClickHouse health

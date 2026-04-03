@@ -384,7 +384,7 @@ Deliverables: updated Dockerfile + DAG + compose + verify script + docs.
 
 ### Task 9 — Bootstrap, backfill, and slot invalidation recovery
 
-This task covers three related scenarios that share the same tooling: initial load for new deployments, targeted backfill for specific tables/date ranges, and recovery after a replication slot invalidation.
+This task covers four related scenarios that share the same tooling: initial load for new deployments, targeted backfill for specific tables/date ranges, recovery after a replication slot invalidation, and selective snapshot after adding new tables to the CDC allowlist.
 
 **Why this matters:** When the reporting stack goes down for an extended period, PostgreSQL's `max_slot_wal_keep_size` (configured in the ref-distro setup) will invalidate the replication slot to protect disk space. Changes that occurred during the gap are lost from the CDC stream. The data still exists in the source PostgreSQL — it just wasn't captured. This task provides the tooling and runbooks to handle that recovery, as well as the initial bootstrap for new country deployments.
 
@@ -407,6 +407,14 @@ Recovery approach: delete failed connector → drop orphaned slot → export cur
 **Scenario C — Targeted backfill:**
 
 Rebuild specific tables or date ranges without a full re-snapshot (e.g., after a dbt model fix, after adding new tables to the publication).
+
+**Scenario D — Selective snapshot after adding new tables:**
+
+When new tables are added to `SOURCE_PG_TABLE_ALLOWLIST`, the existing CDC connector already has a stored offset indicating its initial snapshot is complete. A simple config update (`make register-connector`) captures new *changes* going forward, but does not load existing data from the new tables.
+
+Current workaround: `make connector-refresh` resets all offsets and triggers a full re-snapshot of every table. This works but is wasteful for large deployments — it re-snapshots tables that are already captured, producing duplicate rows (harmless due to dbt deduplication, but slow).
+
+Target solution: Debezium incremental snapshot (see Design notes below) to snapshot only the newly added tables without re-reading existing ones.
 
 **Requirements:**
 
@@ -431,22 +439,30 @@ Rebuild specific tables or date ranges without a full re-snapshot (e.g., after a
      - Runs reconciliation tests
    - Logs each step for audit trail
 
-4. Document three runbooks in `docs/`:
+4. **Implement Debezium incremental snapshot support:**
+   - Create a signal table in the source database (`public.debezium_signal`)
+   - Configure the connector with `signal.data.collection` and `signal.enabled.channels=source`
+   - Provide `scripts/connect/snapshot-tables.sh` that takes a comma-separated list of tables and triggers an incremental snapshot by inserting a signal row
+   - Update `make connector-refresh` to use incremental snapshot when available (falling back to full offset reset when not)
+   - This enables Scenario D (selective snapshot of new tables) without re-reading existing ones, and Scenario C (targeted backfill) without a full re-snapshot
+
+5. Document runbooks in `docs/`:
    - `docs/runbook-initial-load.md` — new country deployment
    - `docs/runbook-slot-recovery.md` — slot invalidation recovery (step-by-step, including how to detect invalidation, expected downtime, and verification)
    - `docs/runbook-backfill.md` — targeted table/date range backfill
+   - `docs/runbook-add-tables.md` — adding new tables to an existing deployment (publication, allowlist, snapshot, ClickHouse init, dbt models — the complete end-to-end procedure)
 
-5. Add an Airflow DAG (`airflow/dags/backfill.py`) for orchestrated backfill that can be triggered manually with parameters (table list, date range).
+6. Add an Airflow DAG (`airflow/dags/backfill.py`) for orchestrated backfill that can be triggered manually with parameters (table list, date range).
 
-6. Support targeted backfills by date range or domain/topic.
+7. Support targeted backfills by date range or domain/topic.
 
 **Design notes:**
 
 - The ClickHouse raw landing layer (append-only) makes recovery straightforward: import the snapshot data alongside existing CDC events. The dbt staging models use deterministic "current-state" logic (latest version per primary key), so overlapping data resolves correctly.
 - Reconciliation tests (counts/sums between source PostgreSQL and curated marts) are critical after any recovery to confirm data integrity.
-- Consider adding Debezium incremental snapshot support (via a signal table) as an alternative to full re-snapshot for large databases. This allows chunk-by-chunk re-reading without blocking.
+- **Debezium incremental snapshot** is the key mechanism that unifies Scenarios C and D. It works by inserting a signal row into a watched table, which tells Debezium to re-read specific tables chunk by chunk alongside the live CDC stream — no connector restart needed, no offset reset, no disruption to ongoing change capture. This is the recommended approach for production deployments; the current `make connector-refresh` (full offset reset) remains as a simpler fallback for development environments.
 
-This task is planned for the second stage, after the MVP platform is validated with real OLMIS data. However, the basic slot recovery procedure (delete connector → drop slot → re-register) works immediately with the current setup — it just triggers Debezium's built-in full snapshot rather than the optimized export/import path.
+This task is planned for the second stage, after the MVP platform is validated with real OLMIS data. However, the basic slot recovery procedure (delete connector → drop slot → re-register) works immediately with the current setup — it just triggers Debezium's built-in full snapshot rather than the optimized export/import path. Similarly, `make connector-refresh` handles the "add new tables" case today via full offset reset.
 
 ### Task 10 — Monitoring and alerting
 

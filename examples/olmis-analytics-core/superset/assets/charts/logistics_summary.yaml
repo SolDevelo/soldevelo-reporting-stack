@@ -10,21 +10,24 @@ is_managed_externally: false
 cache_timeout: null
 params:
   viz_type: table
-  groupby:
+  query_mode: raw
+  all_columns:
     - facility_name
     - product_code
     - product_name
     - period_name
     - stock_on_hand
-    - average_consumption
     - total_consumed_quantity
+    - average_consumption
+  groupby: []
   metrics: []
   adhoc_filters: []
   row_limit: 10000
-  order_by_cols: []
+  order_by_cols:
+    - - period_end_date
+      - false
   server_pagination: true
   server_page_length: 25
-  order_desc: true
   show_cell_bars: false
   color_pn: false
   table_timestamp_format: smart_date

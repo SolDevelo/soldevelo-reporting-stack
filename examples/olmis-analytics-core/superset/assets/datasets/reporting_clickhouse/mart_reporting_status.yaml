@@ -1,0 +1,161 @@
+table_name: mart_reporting_status
+uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+version: "1.0.0"
+database_uuid: "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+schema: curated
+main_dttm_col: period_end_date
+description: "Reporting outcome per (facility × program × period) — both Reported and Did not report rows, plus submission timing for the timeliness chart."
+default_endpoint: null
+offset: 0
+cache_timeout: null
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+is_managed_externally: false
+columns:
+  - column_name: facility_id
+    verbose_name: Facility ID
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: false
+    filterable: false
+    expression: null
+    description: null
+  - column_name: facility_name
+    verbose_name: Facility
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: facility_type_name
+    verbose_name: Facility Type
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: zone_name
+    verbose_name: District
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: parent_zone_name
+    verbose_name: Region
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: program_name
+    verbose_name: Program
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_name
+    verbose_name: Period
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_start_date
+    verbose_name: Period Start Date
+    is_dttm: true
+    is_active: true
+    type: Date
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_end_date
+    verbose_name: Period End Date
+    is_dttm: true
+    is_active: true
+    type: Date
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: reporting_status
+    verbose_name: Reporting Status
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: submitted_date
+    verbose_name: Submitted At
+    is_dttm: true
+    is_active: true
+    type: DateTime
+    groupby: false
+    filterable: true
+    expression: null
+    description: null
+  - column_name: submitted_week_of_month
+    verbose_name: Submitted Week of Month
+    is_dttm: false
+    is_active: true
+    type: UInt8
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+metrics:
+  - metric_name: count
+    verbose_name: "COUNT(*)"
+    metric_type: count
+    expression: "COUNT(*)"
+    description: Total reporting obligations (rows)
+    d3format: ",.0f"
+    extra: null
+    warning_text: null
+  - metric_name: reporting_rate
+    verbose_name: "Reporting Rate"
+    metric_type: null
+    expression: "AVG(CASE WHEN reporting_status = 'Reported' THEN 1.0 ELSE 0.0 END)"
+    description: Fraction of reporting obligations that were submitted (matches legacy Reporting rate metric semantics)
+    d3format: ".1%"
+    extra: null
+    warning_text: null
+  - metric_name: reported_count
+    verbose_name: "Reports Submitted"
+    metric_type: null
+    expression: "SUM(CASE WHEN reporting_status = 'Reported' THEN 1 ELSE 0 END)"
+    description: Number of submitted requisitions across the visible scope
+    d3format: ",.0f"
+    extra: null
+    warning_text: null
+  - metric_name: missed_count
+    verbose_name: "Reports Missed"
+    metric_type: null
+    expression: "SUM(CASE WHEN reporting_status = 'Did not report' THEN 1 ELSE 0 END)"
+    description: Number of missed reporting obligations across the visible scope
+    d3format: ",.0f"
+    extra: null
+    warning_text: null

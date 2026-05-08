@@ -128,7 +128,30 @@ authoritative reference; mw-distro's export is.
 
 ## Phase 3: Reporting Rate and Timeliness
 
-⚠️ Pending.
+### Core dashboard — `OLMIS Reporting Rate` (slug: `olmis-reporting-rate`)
+
+| Legacy chart | Migrated chart | Status | Notes |
+|---|---|---|---|
+| Reporting Rate Indicator Filter (filter_box) | Native horizontal filter bar (Program · Region · District · Period · Facility) | 📝 Modernization | Same as Phase 1/2 — filter_box widget replaced |
+| Reporting Rate (pie) | `reporting_rate_pie.yaml` | ✅ Equivalent | groupby `reporting_status`, COUNT of facility_id. Legacy used `COUNT(reporting_timeliness)` on the same column; semantically the same outcome |
+| Reporting Rate Trend (line) | `reporting_rate_trend.yaml` | ✅ Equivalent | groupby `program_name`, x-axis `period_end_date`, metric `AVG(reported)`. Legacy used the named metric `Reporting rate` defined as `sum(case when reporting_timeliness='Did not report' then 0.0 else 1.0 end) / count(*)` — same expression rewritten with our `reporting_status` column. Numbers will match for any deployment that has both 'Reported' and 'Did not report' rows |
+| Reporting Timeliness By Week (dist_bar) | `reporting_timeliness_by_week.yaml` | 🔧 Bug fix / simpler | Legacy used 5 named metrics (`week1`–`week5`) each computed by an opaque `extract('day' from date_trunc('week', modified_date) - date_trunc('week', date_trunc('month', modified_date))) / 7 + 1 = N` expression to bucket the requisition's modified_date into "week 1 of month" through "week 5". Migrated mart computes a `submitted_week_of_month` column directly (1–5) using ClickHouse-native `toDayOfMonth(submitted_date)` floor-div 7 + 1, then the chart groups by it. **Two semantic differences vs legacy:** (a) we use `submitted_date` (the SUBMITTED status_change timestamp) rather than the raw `modified_date` on the requisition — `submitted_date` is the actual submission moment, not subsequent edits; (b) our week buckets are calendar week-of-month (days 1–7 → week 1, 8–14 → week 2, etc.) rather than ISO week boundaries. Output shape (5 stacked buckets per period) is identical |
+| Non Reporting Facilities (table) | reused `non_reporting_facilities.yaml` from Phase 1 | ✅ Equivalent | Same chart, references existing `mart_non_reporting_facilities` |
+| Expected Number Facilities to Report (table) | `expected_facilities.yaml` | ✅ Equivalent | groupby `zone_name`, `period_name`, `program_name`; metric `COUNT_DISTINCT(facility_id)`. Legacy was `COUNT_DISTINCT(facility_id)` over the `reporting_rate_and_timeliness` MV grouped by district + period — same shape. Added `program_name` to the groupby for finer breakdown; collapse via filter to match legacy single-column view |
+
+### New mart introduced
+
+`mart_reporting_status` is a superset of `mart_non_reporting_facilities`. Both marts coexist:
+- `mart_non_reporting_facilities` is filtered to `reporting_status = 'Did not report'` rows only — used by the existing Non Reporting Facilities chart on Stockouts and Reporting Rate dashboards
+- `mart_reporting_status` includes both 'Reported' and 'Did not report' rows plus `submitted_date` and `submitted_week_of_month` columns — used by the new Phase 3 charts that need the broader view
+
+The reporting-status logic in both marts is byte-equivalent to the legacy `reporting_rate_and_timeliness` MV's CASE expression for `reporting_timeliness`, verified against `OlmisCreateTableStatements.sql`.
+
+### Implementation-level changes (no user-visible data impact)
+
+- `submitted_date`: derived from the earliest `SUBMITTED` `requisition_status_changes` row per (facility, program, period). Legacy used `requisitions.modified_date` for week bucketing — see the bug-fix note above.
+- The 3-year window is on `processing_period.end_date` rather than legacy's `requisitions.created_date` — needed because we want every expected period included (even if no requisition was created), not just periods that had a requisition. Both windows resolve to roughly the same set of recent periods.
+- `enableEmptyFilter: false` on every filter (optional filters), `searchAllOptions: false` (Superset UI default), `NATIVE_FILTER-` underscore IDs, `defaultDataMask.filterState: {value: null}` — same as Phase 1/2 dashboards. These are the runtime conditions Superset needs for native filters to work in 6.1.0rc3.
 
 ## Phase 4: Consumption
 

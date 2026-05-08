@@ -1,0 +1,37 @@
+slice_name: "Expected Facilities to Report"
+viz_type: table
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000034"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+description: "Number of distinct facilities that are expected to report per district per period. Reflects the supported_programs × periods × facilities expansion the legacy reporting_rate_and_timeliness MV produced."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: table
+  groupby:
+    - zone_name
+    - period_name
+    - program_name
+  metrics:
+    - expressionType: SIMPLE
+      column:
+        column_name: facility_id
+        type: String
+      aggregate: COUNT_DISTINCT
+      label: "Expected Facilities"
+  adhoc_filters: []
+  row_limit: 100000
+  order_by_cols: []
+  server_pagination: true
+  server_page_length: 25
+  order_desc: true
+  show_cell_bars: true
+  color_pn: false
+  table_timestamp_format: smart_date
+  page_length: 25
+  include_search: true
+  header_font_size: 0.6
+  cell_font_size: 0.6
+query_context: null

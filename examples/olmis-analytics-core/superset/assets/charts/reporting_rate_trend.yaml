@@ -1,0 +1,37 @@
+slice_name: "Reporting Rate Trend"
+viz_type: echarts_timeseries_line
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000032"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+description: "Reporting rate over time, broken down by program. Each line shows the share of facilities that submitted a requisition for that program in each period."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_line
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SQL
+      sqlExpression: "AVG(CASE WHEN reporting_status = 'Reported' THEN 1.0 ELSE 0.0 END)"
+      label: "Reporting Rate"
+  groupby:
+    - program_name
+  adhoc_filters: []
+  row_limit: 10000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Period
+  y_axis_title: Reporting Rate
+  y_axis_format: ".0%"
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  markerEnabled: true
+  markerSize: 6
+  zoomable: true
+query_context: null

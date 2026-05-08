@@ -1,0 +1,43 @@
+slice_name: "Reporting Timeliness By Week"
+viz_type: echarts_timeseries_bar
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000033"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+description: "Distribution of submitted reports across week 1–5 of the calendar month. Helps spot whether reporters submit early or late in the month."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SIMPLE
+      column:
+        column_name: facility_id
+        type: String
+      aggregate: COUNT
+      label: "Reports"
+  groupby:
+    - submitted_week_of_month
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SQL
+      sqlExpression: "reporting_status = 'Reported'"
+      subject: reporting_status
+  row_limit: 10000
+  order_desc: false
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Period
+  y_axis_title: Submitted Reports
+  y_axis_format: ",.0f"
+  stack: stack
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  zoomable: true
+query_context: null

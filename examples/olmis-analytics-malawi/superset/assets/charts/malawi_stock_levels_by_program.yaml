@@ -1,0 +1,43 @@
+slice_name: "Malawi: Stock Levels by Program"
+viz_type: echarts_timeseries_bar
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000025"
+version: "1.0.0"
+dataset_uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+description: "Distinct facility count per stock status, by Malawi health program over time. Use the Health Program filter to drill into a specific program."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SIMPLE
+      column:
+        column_name: facility_id
+        type: String
+      aggregate: COUNT_DISTINCT
+      label: "Facility Count"
+  groupby:
+    - stock_status
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SQL
+      sqlExpression: "stock_status IS NOT NULL"
+      subject: stock_status
+  row_limit: 10000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Period
+  y_axis_title: Facility Count
+  y_axis_format: ",.0f"
+  stack: stack
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  zoomable: true
+query_context: null

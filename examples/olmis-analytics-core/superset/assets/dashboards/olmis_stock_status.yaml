@@ -1,0 +1,237 @@
+dashboard_title: "OLMIS Stock Status"
+uuid: "d1e2f3a4-b5c6-4d7e-8f9a-000000000020"
+version: "1.0.0"
+description: "Stock-level trends across facilities, products, and districts: stockout rate, months of stock, stock status distribution."
+slug: olmis-stock-status
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: true
+  filter_bar_orientation: HORIZONTAL
+  native_filter_configuration:
+    - id: NATIVE-FILTER-program
+      name: Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: program_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-period
+      name: Period
+      filterType: filter_select
+      targets:
+        - column:
+            name: period_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-facility
+      name: Facility
+      filterType: filter_select
+      targets:
+        - column:
+            name: facility_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-product
+      name: Product
+      filterType: filter_select
+      targets:
+        - column:
+            name: product_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-rate
+      - ROW-mos
+      - ROW-distribution
+      - ROW-non-reporting
+    parents:
+      - ROOT_ID
+  ROW-rate:
+    type: ROW
+    id: ROW-rate
+    children:
+      - CHART-stockout-rate
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-stockout-rate:
+    type: CHART
+    id: CHART-stockout-rate
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-rate
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Stockout Rate Over Time"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000016"
+  ROW-mos:
+    type: ROW
+    id: ROW-mos
+    children:
+      - CHART-mos
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-mos:
+    type: CHART
+    id: CHART-mos
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-mos
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Months of Stock Over Time"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000017"
+  ROW-distribution:
+    type: ROW
+    id: ROW-distribution
+    children:
+      - CHART-distribution
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-distribution:
+    type: CHART
+    id: CHART-distribution
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-distribution
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Stock Status Distribution Over Time"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000018"
+  ROW-non-reporting:
+    type: ROW
+    id: ROW-non-reporting
+    children:
+      - CHART-non-reporting
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-non-reporting:
+    type: CHART
+    id: CHART-non-reporting
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-non-reporting
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Non Reporting Facilities"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000015"

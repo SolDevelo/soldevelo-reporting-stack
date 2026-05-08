@@ -63,6 +63,15 @@ columns:
     filterable: true
     expression: null
     description: null
+  - column_name: facility_id
+    verbose_name: Facility ID
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: false
+    filterable: false
+    expression: null
+    description: null
   - column_name: facility_name
     verbose_name: Facility
     is_dttm: false

@@ -1,0 +1,43 @@
+slice_name: "Stock Status Distribution Over Time"
+viz_type: echarts_timeseries_bar
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000018"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+description: "Distinct facility count per stock_status category, stacked over time. Shows how many distinct facilities fall into each category (Stocked Out / Understocked / Adequately stocked / Overstocked / Unknown) for each reporting period."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SIMPLE
+      column:
+        column_name: facility_id
+        type: String
+      aggregate: COUNT_DISTINCT
+      label: "Facility Count"
+  groupby:
+    - stock_status
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SQL
+      sqlExpression: "stock_status IS NOT NULL"
+      subject: stock_status
+  row_limit: 10000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Period
+  y_axis_title: Facility Count
+  y_axis_format: ",.0f"
+  stack: stack
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  zoomable: true
+query_context: null

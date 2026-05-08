@@ -1,0 +1,162 @@
+dashboard_title: "Malawi Stock Levels"
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000026"
+version: "1.0.0"
+description: "Stock level distribution by Malawi health program. Use the Health Program filter to drill into HIV/AIDS, Malaria, TB, IMCI, Reproductive Health, Nutrition, HSSP Tracer, Tablets/Capsules, Injections, or Health Supplies."
+slug: malawi-stock-levels
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: true
+  filter_bar_orientation: HORIZONTAL
+  native_filter_configuration:
+    - id: NATIVE-FILTER-malawi-program
+      name: Health Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: malawi_program
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-program
+      name: Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: program_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: zone_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-period
+      name: Period
+      filterType: filter_select
+      targets:
+        - column:
+            name: period_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-product
+      name: Product
+      filterType: filter_select
+      targets:
+        - column:
+            name: product_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-mw-stock-levels
+    parents:
+      - ROOT_ID
+  ROW-mw-stock-levels:
+    type: ROW
+    id: ROW-mw-stock-levels
+    children:
+      - CHART-mw-stock-levels
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-mw-stock-levels:
+    type: CHART
+    id: CHART-mw-stock-levels
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-mw-stock-levels
+    meta:
+      chartId: 0
+      height: 60
+      width: 12
+      sliceName: "Malawi: Stock Levels by Program"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000025"

@@ -1,0 +1,34 @@
+slice_name: "Stockout Rate Over Time"
+viz_type: echarts_timeseries_line
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000016"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+description: "Average stockout rate across all line items per period. A line item is counted as stocked out if any of: stock_on_hand=0, total_stockout_days>0, beginning_balance=0, or max_periods_of_stock=0 (combined_stockout flag)."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_line
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SQL
+      sqlExpression: "AVG(combined_stockout)"
+      label: "Stockout Rate"
+  groupby: []
+  adhoc_filters: []
+  row_limit: 10000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: false
+  x_axis_title: Period
+  y_axis_title: Stockout Rate
+  y_axis_format: ".0%"
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  markerEnabled: true
+  markerSize: 6
+  zoomable: true
+query_context: null

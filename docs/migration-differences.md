@@ -97,7 +97,34 @@ authoritative reference; mw-distro's export is.
 
 ## Phase 2: Stock Status
 
-⚠️ Pending. Will be filled in as that phase is migrated.
+### Core dashboard — `OLMIS Stock Status` (slug: `olmis-stock-status`)
+
+| Legacy chart | Migrated chart | Status | Notes |
+|---|---|---|---|
+| Stock Filter (filter_box, file `Stock_Filter_218.yaml`) | Native horizontal filter bar (Program · Region · District · Period · Facility · Product) | 📝 Modernization | Same as Phase 1 — `filter_box` is deprecated in Superset 6 |
+| Stockout Rate Over Time (line, `Stockout_Rate_Over_Time_15.yaml`) | `stockout_rate_over_time.yaml` | 🔧 Bug fix | Legacy metric: `COUNT(CASE WHEN stock_on_hand = 0 THEN facility_id END) / COUNT(facility_id)` — only counts SOH=0 cases. Migrated metric: `AVG(combined_stockout)` — uses the broader `combined_stockout` flag (SOH=0 OR stockout_days>0 OR begin_bal=0 OR MoS=0) which matches the source MV's documented stockout definition. **Numbers will differ from legacy** when there are line items with stockout_days>0 or begin_bal=0 but SOH>0. Legacy chart was internally inconsistent: the same MV defines `combined_stockout` broadly but this chart uses the narrow SOH=0 alternative |
+| Months of Stock (line, `Months_of_Stock_17.yaml`) | `months_of_stock_over_time.yaml` | 🔧 Bug fix | Legacy aggregation: `SUM(max_periods_of_stock)` grouped by `district_name`. Summing a "max periods of stock" per line item across all line items in a district produces an unintelligible total — almost certainly a legacy bug (intended AVG, used SUM). Migrated uses `AVG(months_of_stock)` where `months_of_stock = round(stock_on_hand / average_consumption, 1)` — the standard months-of-stock formula. **Numbers will differ from legacy** but reflect what the chart name implies |
+| Stock Status over Time (stacked bar, `Stock_Status_over_Time_16.yaml`) | `stock_status_distribution.yaml` | ✅ Equivalent | Migrated chart preserves: `bar_stacked: true` (now `stack: stack`), groupby `stock_status`, metric `COUNT_DISTINCT(facility_id)`, filter `stock_status IS NOT NULL`. Renamed for grammar ("over Time" → "Distribution Over Time"). viz_type updated from legacy `bar` to `echarts_timeseries_bar` (Superset 6 native time-series renderer) |
+| Non Reporting Facilities (table, shared with Stockouts) | reused `non_reporting_facilities.yaml` | ✅ Equivalent | Same chart referenced from Stockouts dashboard — the shared chart pattern reduces duplication |
+
+### Extension dashboard — `Malawi Stock Levels` (slug: `malawi-stock-levels`)
+
+| Legacy charts | Migrated chart | Status | Notes |
+|---|---|---|---|
+| HIV Stock Levels, TB Stock Levels, Malaria Stock Levels, Essential Meds Stock Levels, Nutrition Stock Levels, RH Stock Levels (six dist_bar charts, each filtered by `program_name = '<one program>'`) | `malawi_stock_levels_by_program.yaml` (single stacked bar with Health Program filter) | 📝 Modernization | Six near-identical legacy charts with hardcoded `program_name` filters consolidated into one chart filterable by Health Program (uses `malawi_program` column from the seed). Same metric (`COUNT_DISTINCT(facility_id)` per `stock_status`) and same time grain. **Important data note:** legacy filtered by `program_name` (the OpenLMIS program string, e.g. "HIV", "Malaria"); migrated filters by `malawi_program` (our seed's classification, e.g. "HIV/AIDS", "National Malaria Control Program"). The product subsets per program will differ — see the Malawi seed coverage notes in Phase 1. To restore exact-legacy filtering, switch the dashboard's default filter to `program_name = '<value>'` — both columns are exposed |
+| Stockout Trend - Malaria Program, Stockout Trends - Malaria Program, Stockout Trends - HIV Program, Stockout Trends - RH Program × 2 (4–5 line charts, hardcoded product code filters) | (already covered by Phase 1 `malawi_stockout_by_program.yaml` + `malawi_stockout_by_district.yaml`) | 📝 Modernization | These charts overlap with the Stockouts dashboard's "District Stockout Rates over Time" charts, just with slightly different metric (`SUM(CASE WHEN stock_on_hand = 0 ...)` vs `AVG(combined_stockout)`) and an extra `amc IS NOT NULL` filter. Phase 1 consolidation covers the same intent. The legacy duplicate-name chart (`Stockout Trend - Malaria Program` singular vs plural) and the two RH copies (`_10.yaml`, `_11.yaml`) suggest these were dashboard-specific clones rather than meaningfully distinct — treating them as one logical chart is the right call |
+
+#### Implementation notes
+
+- Both Phase 2 dashboards reuse the existing `mart_stock_status` and `mart_malawi_stock_status` marts — no new dbt models required.
+- Three new columns exposed on `mart_stock_status` Superset dataset: `facility_id` (for `COUNT_DISTINCT`), `period_start_date`, `max_periods_of_stock`. `facility_id` also exposed on `mart_malawi_stock_status`.
+- All legacy `row_limit: 10000` settings preserved.
+- All four new charts verified to return data against mw-distro after the Phase 1 test-data redistribution: 9 distinct months × multiple districts × 4 stock-status categories.
+
+#### Known caveats specific to mw-distro test data
+
+- Legacy charts had `time_range: "Last year"` defaults. New charts don't set a default time range, so they show all data in the mart (3-year window). Easy adjustment if needed.
+- `Stock Status Distribution Over Time` shows mostly "Stocked Out" status because the synthetic test data we redistributed in Phase 1 (`UPDATE referencedata.processing_periods` to spread requisitions across 2025) preserves the stock-empty state of the legacy 2017 line items. Real Malawi data will show a more balanced distribution.
 
 ## Phase 3: Reporting Rate and Timeliness
 

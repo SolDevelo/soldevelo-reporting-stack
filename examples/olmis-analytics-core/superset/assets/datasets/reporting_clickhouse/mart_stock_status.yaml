@@ -27,6 +27,15 @@ columns:
     filterable: false
     expression: null
     description: null
+  - column_name: facility_id
+    verbose_name: Facility ID
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: false
+    filterable: false
+    expression: null
+    description: null
   - column_name: facility_name
     verbose_name: Facility
     is_dttm: false
@@ -77,6 +86,15 @@ columns:
     is_dttm: false
     is_active: true
     type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_start_date
+    verbose_name: Period Start Date
+    is_dttm: true
+    is_active: true
+    type: Date
     groupby: true
     filterable: true
     expression: null
@@ -162,6 +180,15 @@ columns:
     filterable: true
     expression: null
     description: null
+  - column_name: max_periods_of_stock
+    verbose_name: Max Periods of Stock
+    is_dttm: false
+    is_active: true
+    type: Float
+    groupby: false
+    filterable: true
+    expression: null
+    description: Configured maximum periods of stock for the line item (raw input from requisition).
   - column_name: months_of_stock
     verbose_name: Months of Stock
     is_dttm: false

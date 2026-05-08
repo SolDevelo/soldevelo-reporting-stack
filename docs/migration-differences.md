@@ -215,6 +215,10 @@ Required a clean reset (`make reset && make up && make setup`) because the exist
 
 Both corrections produce more accurate counts. Numbers will differ from legacy charts in any deployment where line items have multiple adjustments or where the schema changed since the MV was authored.
 
+### Test-data caveat
+
+`status_changes` for the time-shifted requisitions (the rows we backdated from 2017–2018 into 2024–2026 to fill the rolling 3-year window) had to be shifted independently — the original status_changes timestamps were still 2017–2018, which made every Phase 5 chart with `time_range: "Last month"` return zero rows in mw-distro. The runtime fix (in mw-distro DB only, not committed): `UPDATE requisition.status_changes SET createddate = createddate + INTERVAL '14 months' FROM requisition.requisitions WHERE …` to push them into March–October 2026. The shift does not affect any earlier mart's data because no other Phase used `status_changes.created_date` as a chart time anchor.
+
 ## Phase 6: Orders
 
 ⚠️ Pending.

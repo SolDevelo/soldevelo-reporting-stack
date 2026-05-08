@@ -60,20 +60,27 @@ print(sum(1 for t in tasks if t['state'] == 'RUNNING'))
 check "Connector '${CONNECTOR_NAME}' is RUNNING" check_connector_running
 
 # --- Check 2: at least one CDC topic exists ---
+# Topics are created lazily as Debezium emits the first event for each table,
+# so on a first registration they may not exist for several seconds after the
+# connector reports RUNNING. Poll up to TOPIC_WAIT_SECONDS.
+TOPIC_WAIT_SECONDS="${TOPIC_WAIT_SECONDS:-60}"
 check_cdc_topics() {
-  local topics
-  topics=$(docker compose --env-file "$REPO_ROOT/.env" -f "$REPO_ROOT/compose/docker-compose.yml" exec -T kafka \
-    /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null)
-  local cdc_count
-  cdc_count=$(echo "$topics" | grep -c "^${DEBEZIUM_TOPIC_PREFIX}\." || true)
-  if [ "$cdc_count" -lt 1 ]; then
-    echo "    no topics matching '${DEBEZIUM_TOPIC_PREFIX}.*' found" >&2
-    echo "    existing topics:" >&2
-    echo "$topics" | sed 's/^/      /' >&2
-    return 1
-  fi
-  echo "    found $cdc_count CDC topic(s)" >&2
-  return 0
+  local topics cdc_count elapsed=0
+  while [ "$elapsed" -lt "$TOPIC_WAIT_SECONDS" ]; do
+    topics=$(docker compose --env-file "$REPO_ROOT/.env" -f "$REPO_ROOT/compose/docker-compose.yml" exec -T kafka \
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null)
+    cdc_count=$(echo "$topics" | grep -c "^${DEBEZIUM_TOPIC_PREFIX}\." || true)
+    if [ "$cdc_count" -ge 1 ]; then
+      echo "    found $cdc_count CDC topic(s) (after ${elapsed}s)" >&2
+      return 0
+    fi
+    sleep 3
+    elapsed=$((elapsed + 3))
+  done
+  echo "    no topics matching '${DEBEZIUM_TOPIC_PREFIX}.*' found after ${TOPIC_WAIT_SECONDS}s" >&2
+  echo "    existing topics:" >&2
+  echo "$topics" | sed 's/^/      /' >&2
+  return 1
 }
 check "At least one CDC topic exists (prefix: ${DEBEZIUM_TOPIC_PREFIX})" check_cdc_topics
 
@@ -86,14 +93,22 @@ COMPOSE_CMD="docker compose --env-file $REPO_ROOT/.env -f $REPO_ROOT/compose/doc
 HEARTBEAT_TOPIC="__debezium-heartbeat.${DEBEZIUM_TOPIC_PREFIX}"
 
 check_cdc_streaming() {
-  local before after
+  local before after elapsed=0
 
-  before=$($COMPOSE_CMD exec -T kafka \
-    /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
-    --topic "$HEARTBEAT_TOPIC" 2>/dev/null | cut -d: -f3)
+  # Poll for the heartbeat topic — on first registration the connector may
+  # finish its initial snapshot before transitioning to streaming, during
+  # which window the heartbeat topic does not yet exist.
+  while [ "$elapsed" -lt "$TOPIC_WAIT_SECONDS" ]; do
+    before=$($COMPOSE_CMD exec -T kafka \
+      /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
+      --topic "$HEARTBEAT_TOPIC" 2>/dev/null | cut -d: -f3)
+    [ -n "$before" ] && break
+    sleep 3
+    elapsed=$((elapsed + 3))
+  done
 
   if [ -z "$before" ]; then
-    echo "    heartbeat topic '$HEARTBEAT_TOPIC' not found" >&2
+    echo "    heartbeat topic '$HEARTBEAT_TOPIC' not found after ${TOPIC_WAIT_SECONDS}s" >&2
     return 1
   fi
 

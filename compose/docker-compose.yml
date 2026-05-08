@@ -196,7 +196,7 @@ services:
   # Airflow metadata database
   # ---------------------------------------------------------------------------
   airflow-db:
-    image: postgres:16-alpine
+    image: postgres:17.9-alpine
     hostname: airflow-db
     restart: unless-stopped
     networks:
@@ -326,7 +326,7 @@ services:
   # Superset metadata database
   # ---------------------------------------------------------------------------
   superset-db:
-    image: postgres:16-alpine
+    image: postgres:17.9-alpine
     hostname: superset-db
     restart: unless-stopped
     networks:

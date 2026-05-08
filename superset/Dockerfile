@@ -3,7 +3,7 @@ FROM apache/superset:6.0.0
 # Install ClickHouse driver and PostgreSQL adapter for the metadata DB.
 # Superset 6.0.0 uses a venv at /app/.venv built with uv.
 USER root
-RUN uv pip install --python /app/.venv/bin/python clickhouse-connect psycopg2-binary
+RUN uv pip install --python /app/.venv/bin/python clickhouse-connect==0.15.1 psycopg2-binary==2.9.12
 USER superset
 
 # Platform configuration

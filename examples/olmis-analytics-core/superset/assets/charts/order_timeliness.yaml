@@ -3,7 +3,7 @@ viz_type: pie
 uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000064"
 version: "1.0.0"
 dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
-description: "Distribution of requisitions by when in the calendar month they were last modified (Before 10th / Between 10th - 20th / After 20th). Reflects how quickly facilities act on their requisition cycle. Legacy chart was hardcoded to program_name = 'Essential Meds'; the migration drops that filter and exposes Program in the dashboard filter bar."
+description: "Distribution of requisition line items by when their parent requisition was last modified in the calendar month (Before 10th / Between 10th - 20th / After 20th). Reflects how quickly facilities act on their requisition cycle, weighted by line-item volume. Legacy chart was hardcoded to program_name = 'Essential Meds'; the migration drops that filter and exposes Program in the dashboard filter bar."
 certified_by: null
 certification_details: null
 is_managed_externally: false
@@ -18,7 +18,7 @@ params:
       column_name: requisition_id
       type: String
     aggregate: COUNT
-    label: "Requisitions"
+    label: "Line Items"
   adhoc_filters: []
   time_range: "Last month"
   row_limit: 25

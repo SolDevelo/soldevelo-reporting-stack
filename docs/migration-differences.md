@@ -231,7 +231,7 @@ Both corrections produce more accurate counts. Numbers will differ from legacy c
 | Emergency v. Regular Orders (pie) | `emergency_vs_regular_orders.yaml` | ✅ Equivalent | groupby `emergency`, `COUNT_DISTINCT(requisition_id)`, filter `total_received_quantity > 0`. time_range "Last 10 years" matches legacy. Renamed from "v." to "vs" for grammar |
 | Total Cost of Orders (table) | `total_cost_of_orders.yaml` | ✅ Equivalent | Raw-mode table showing facility/product/period/total_cost rows. Sorted by total_cost desc. Server-paginated (legacy was unpaginated `page_length: null`); switched because mw-distro data has 175 rows that DOM-bombed in prior phases. Friendly column labels via `column_config.customColumnName` |
 | Estimated Order Value (dist_bar) | `estimated_order_value.yaml` | 🔧 Bug fix | Legacy chart was hardcoded to `program_name = 'Essential Meds'` despite a generic chart name — same Malaria-only-style hardcoding we corrected in Phase 4. Migration drops the hardcoded program filter and exposes Program in the dashboard filter bar. Numbers match legacy when Program=Essential Meds is selected |
-| Order Timeliness (pie) | `order_timeliness.yaml` | 🔧 Bug fix | Legacy chart was hardcoded to `program_name = 'Essential Meds'`. Migration drops the hardcoded filter, same rationale as Estimated Order Value. groupby is the new computed column `order_timeliness`. Legacy expression (Postgres) used `extract('day' from date_trunc('day', modified_date) - date_trunc('month', modified_date)) + 1` to bucket day-of-month; migrated mart computes it with ClickHouse-native `toDayOfMonth(requisition_modified_date)` directly. Output buckets ("Before 10th", "Between 10th - 20th", "After 20th") are identical |
+| Order Timeliness (pie) | `order_timeliness.yaml` | 🔧 Bug fix + 📝 Modernization | Legacy chart was hardcoded to `program_name = 'Essential Meds'`. Migration drops the hardcoded filter, same rationale as Estimated Order Value. groupby is the new computed column `order_timeliness`. Legacy expression (Postgres) used `extract('day' from date_trunc('day', modified_date) - date_trunc('month', modified_date)) + 1` to bucket day-of-month; migrated mart computes it with ClickHouse-native `toDayOfMonth(requisition_modified_date)` directly. Output buckets ("Before 10th", "Between 10th - 20th", "After 20th") are identical. **Metric label renamed** from "Requisitions" → "Line Items" to match what the metric actually counts (see "Order Timeliness label correction" below) |
 
 ### mart_stock_status extensions
 
@@ -245,6 +245,17 @@ All exposed in the Superset dataset YAML so charts can group/filter on them.
 ### Two `program_name = 'Essential Meds'` hardcoded filters dropped
 
 Mirrors the Phase 4 pattern: Estimated Order Value and Order Timeliness charts in legacy were hardcoded to one specific program despite generic chart names. Migration drops those filters and exposes Program in the filter bar — users replicate the legacy view by selecting Program=Essential Meds.
+
+### Order Timeliness label correction
+
+Legacy chart's metric was `COUNT(li_req_id)` (no DISTINCT) on the line-item-grained `stock_status_and_consumption` MV, with the metric label rendered as `"COUNT(li_req_id)"` and the chart implicitly framed as a count of "requisitions". This is mathematically inaccurate: each requisition contributes one row per line item to the MV, so the count is over **line items**, not requisitions. A requisition with 50 product lines counted as 50, weighting the bucket by line-item volume rather than requisition count.
+
+Migration preserves the legacy math (still `COUNT(requisition_id)` non-distinct against the line-item-grained `mart_stock_status`) so the numbers match what users have been seeing. Two cosmetic corrections to make the chart honest:
+
+- Metric label changed from `"Requisitions"` → `"Line Items"`
+- Chart description rewritten to say "Distribution of requisition line items by when their parent requisition was last modified", and to call out that the result is weighted by line-item volume
+
+The shape of the distribution is unchanged. Switching the underlying metric to `COUNT(DISTINCT requisition_id)` would have changed every value vs. legacy and broken the data-equivalence contract; we chose to keep the math and fix the label instead.
 
 ### Test-data caveats
 

@@ -36,6 +36,13 @@ metadata:
         multiSelect: true
         searchAllOptions: true
         inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState: {}
+        ownState: {}
     - id: NATIVE-FILTER-region
       name: Region
       filterType: filter_select
@@ -53,6 +60,13 @@ metadata:
         multiSelect: true
         searchAllOptions: true
         inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState: {}
+        ownState: {}
     - id: NATIVE-FILTER-district
       name: District
       filterType: filter_select
@@ -70,6 +84,13 @@ metadata:
         multiSelect: true
         searchAllOptions: true
         inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState: {}
+        ownState: {}
     - id: NATIVE-FILTER-period
       name: Period
       filterType: filter_select
@@ -87,6 +108,13 @@ metadata:
         multiSelect: true
         searchAllOptions: true
         inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState: {}
+        ownState: {}
     - id: NATIVE-FILTER-facility
       name: Facility
       filterType: filter_select
@@ -104,6 +132,13 @@ metadata:
         multiSelect: true
         searchAllOptions: true
         inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState: {}
+        ownState: {}
     - id: NATIVE-FILTER-product
       name: Product
       filterType: filter_select
@@ -121,6 +156,13 @@ metadata:
         multiSelect: true
         searchAllOptions: true
         inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState: {}
+        ownState: {}
     - id: NATIVE-FILTER-stock-status
       name: Stock Status
       filterType: filter_select
@@ -138,6 +180,13 @@ metadata:
         multiSelect: true
         searchAllOptions: true
         inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState: {}
+        ownState: {}
 position:
   DASHBOARD_VERSION_KEY: v2
   ROOT_ID:

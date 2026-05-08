@@ -1,0 +1,50 @@
+slice_name: "Total Cost of Orders"
+viz_type: table
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000062"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+description: "Per-facility line-item rows showing the total cost of each ordered product. Use the dashboard filters to scope by program, district, or period."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: table
+  query_mode: raw
+  all_columns:
+    - facility_name
+    - facility_type_name
+    - zone_name
+    - product_name
+    - period_name
+    - total_cost
+  groupby: []
+  metrics: []
+  adhoc_filters: []
+  time_range: "Last 10 years"
+  row_limit: 10000
+  order_by_cols:
+    - '["total_cost", false]'
+  server_pagination: true
+  server_page_length: 25
+  show_cell_bars: true
+  color_pn: false
+  table_timestamp_format: smart_date
+  page_length: 25
+  include_search: true
+  header_font_size: 0.6
+  cell_font_size: 0.6
+  column_config:
+    facility_name:
+      customColumnName: "Facility"
+    facility_type_name:
+      customColumnName: "Facility Type"
+    zone_name:
+      customColumnName: "District"
+    product_name:
+      customColumnName: "Product"
+    period_name:
+      customColumnName: "Period"
+    total_cost:
+      customColumnName: "Total Cost"
+query_context: null

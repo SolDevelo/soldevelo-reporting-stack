@@ -153,6 +153,33 @@ columns:
     filterable: true
     expression: null
     description: null
+  - column_name: emergency
+    verbose_name: Emergency
+    is_dttm: false
+    is_active: true
+    type: UInt8
+    groupby: true
+    filterable: true
+    expression: null
+    description: "1 if the requisition was marked emergency, 0 otherwise"
+  - column_name: requisition_modified_date
+    verbose_name: Requisition Modified Date
+    is_dttm: true
+    is_active: true
+    type: DateTime
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: order_timeliness
+    verbose_name: Order Timeliness
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: "Bucket of day-of-month when the requisition was last modified: 'Before 10th', 'Between 10th - 20th', 'After 20th'"
   - column_name: stock_status
     verbose_name: Stock Status
     is_dttm: false

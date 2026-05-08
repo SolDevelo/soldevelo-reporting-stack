@@ -221,7 +221,35 @@ Both corrections produce more accurate counts. Numbers will differ from legacy c
 
 ## Phase 6: Orders
 
-⚠️ Pending.
+### Core dashboard — `OLMIS Orders` (slug: `olmis-orders`)
+
+| Legacy chart | Migrated chart | Status | Notes |
+|---|---|---|---|
+| Orders Filter (filter_box) | Native horizontal filter bar (Program · Region · District · Period · Facility · Emergency) | 📝 Modernization | Same as Phases 1–5 |
+| Reporting Rate (pie, shared) | (not duplicated; users navigate to OLMIS Reporting Rate dashboard) | 📝 Modernization | Legacy duplicated the pie on every dashboard. Migration consolidates the Reporting Rate chart on its own dedicated dashboard (Phase 3) instead of repeating it. Cross-dashboard navigation is one click via the Superset dashboard menu |
+| Non Reporting Facilities (table, shared) | reused `non_reporting_facilities.yaml` | ✅ Equivalent | Same chart, references existing `mart_non_reporting_facilities` |
+| Emergency v. Regular Orders (pie) | `emergency_vs_regular_orders.yaml` | ✅ Equivalent | groupby `emergency`, `COUNT_DISTINCT(requisition_id)`, filter `total_received_quantity > 0`. time_range "Last 10 years" matches legacy. Renamed from "v." to "vs" for grammar |
+| Total Cost of Orders (table) | `total_cost_of_orders.yaml` | ✅ Equivalent | Raw-mode table showing facility/product/period/total_cost rows. Sorted by total_cost desc. Server-paginated (legacy was unpaginated `page_length: null`); switched because mw-distro data has 175 rows that DOM-bombed in prior phases. Friendly column labels via `column_config.customColumnName` |
+| Estimated Order Value (dist_bar) | `estimated_order_value.yaml` | 🔧 Bug fix | Legacy chart was hardcoded to `program_name = 'Essential Meds'` despite a generic chart name — same Malaria-only-style hardcoding we corrected in Phase 4. Migration drops the hardcoded program filter and exposes Program in the dashboard filter bar. Numbers match legacy when Program=Essential Meds is selected |
+| Order Timeliness (pie) | `order_timeliness.yaml` | 🔧 Bug fix | Legacy chart was hardcoded to `program_name = 'Essential Meds'`. Migration drops the hardcoded filter, same rationale as Estimated Order Value. groupby is the new computed column `order_timeliness`. Legacy expression (Postgres) used `extract('day' from date_trunc('day', modified_date) - date_trunc('month', modified_date)) + 1` to bucket day-of-month; migrated mart computes it with ClickHouse-native `toDayOfMonth(requisition_modified_date)` directly. Output buckets ("Before 10th", "Between 10th - 20th", "After 20th") are identical |
+
+### mart_stock_status extensions
+
+Three new columns added to `mart_stock_status` (no new mart needed):
+- `emergency` (UInt8) — from `requisitions.emergency`
+- `requisition_modified_date` (DateTime, nullable) — from `requisitions.modified_date`
+- `order_timeliness` (String) — computed from `toDayOfMonth(requisition_modified_date)` into the three legacy buckets
+
+All exposed in the Superset dataset YAML so charts can group/filter on them.
+
+### Two `program_name = 'Essential Meds'` hardcoded filters dropped
+
+Mirrors the Phase 4 pattern: Estimated Order Value and Order Timeliness charts in legacy were hardcoded to one specific program despite generic chart names. Migration drops those filters and exposes Program in the filter bar — users replicate the legacy view by selecting Program=Essential Meds.
+
+### Test-data caveats
+
+- **Estimated Order Value** uses `time_range: "Last quarter"`. mw-distro test data ends Dec 2025; today is May 2026; "Last quarter" resolves to Jan–Mar 2026. Chart will be empty in mw-distro. Works on live data.
+- **Order Timeliness** uses `time_range: "Last month"`. Required time-shifting `requisitions.modifieddate` forward into early 2026 so the filter catches anything (same DB-only fix pattern we applied for status_changes in Phase 5). After the shift, ~18 rows fall in April 2026 with `order_timeliness = 'After 20th'` (single pie slice). Live deployments would have varied date-of-month values and a more balanced 3-slice pie.
 
 ## Phase 7: Administrative + Master
 

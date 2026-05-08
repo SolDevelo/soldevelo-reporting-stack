@@ -103,7 +103,20 @@ select
                or li.beginning_balance = 0)
       then 'Unknown'
     else 'Adequately stocked'
-  end                           as stock_status
+  end                           as stock_status,
+
+  -- order-related fields (Phase 6 Orders dashboard)
+  r.emergency                   as emergency,
+  r.modified_date               as requisition_modified_date,
+
+  -- computed: order timeliness based on day-of-month of last requisition update
+  -- (matches legacy 'Order Timeliness' computed column on stock_status_and_consumption)
+  case
+    when r.modified_date is null then null
+    when toDayOfMonth(r.modified_date) <= 10 then 'Before 10th'
+    when toDayOfMonth(r.modified_date) <= 20 then 'Between 10th - 20th'
+    else 'After 20th'
+  end                           as order_timeliness
 
 from {{ ref('stg_requisition_line_items') }} li
 inner join {{ ref('stg_requisitions') }} r

@@ -1,0 +1,300 @@
+dashboard_title: "OLMIS Orders"
+uuid: "d1e2f3a4-b5c6-4d7e-8f9a-000000000060"
+version: "1.0.0"
+description: "Order analytics: emergency vs regular split, per-facility costs, district-level order value, timeliness within the month, and reporting context."
+slug: olmis-orders
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: true
+  filter_bar_orientation: HORIZONTAL
+  native_filter_configuration:
+    - id: NATIVE_FILTER-program
+      name: Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: program_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-period
+      name: Period
+      filterType: filter_select
+      targets:
+        - column:
+            name: period_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-facility
+      name: Facility
+      filterType: filter_select
+      targets:
+        - column:
+            name: facility_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-emergency
+      name: Emergency
+      filterType: filter_select
+      targets:
+        - column:
+            name: emergency
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-pies
+      - ROW-bar
+      - ROW-cost
+      - ROW-non-reporting
+    parents:
+      - ROOT_ID
+  ROW-pies:
+    type: ROW
+    id: ROW-pies
+    children:
+      - CHART-emergency
+      - CHART-timeliness
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-emergency:
+    type: CHART
+    id: CHART-emergency
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-pies
+    meta:
+      chartId: 0
+      height: 50
+      width: 6
+      sliceName: "Emergency vs Regular Orders"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000061"
+  CHART-timeliness:
+    type: CHART
+    id: CHART-timeliness
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-pies
+    meta:
+      chartId: 0
+      height: 50
+      width: 6
+      sliceName: "Order Timeliness"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000064"
+  ROW-bar:
+    type: ROW
+    id: ROW-bar
+    children:
+      - CHART-bar
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-bar:
+    type: CHART
+    id: CHART-bar
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-bar
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Estimated Order Value"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000063"
+  ROW-cost:
+    type: ROW
+    id: ROW-cost
+    children:
+      - CHART-cost
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-cost:
+    type: CHART
+    id: CHART-cost
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-cost
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Total Cost of Orders"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000062"
+  ROW-non-reporting:
+    type: ROW
+    id: ROW-non-reporting
+    children:
+      - CHART-non-reporting
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-non-reporting:
+    type: CHART
+    id: CHART-non-reporting
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-non-reporting
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Non Reporting Facilities"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000015"

@@ -1,0 +1,41 @@
+slice_name: "Emergency vs Regular Orders"
+viz_type: pie
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000061"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+description: "Distinct requisition count split between emergency and regular orders. Counts only requisitions that received some quantity (total_received_quantity > 0)."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: pie
+  groupby:
+    - emergency
+  metric:
+    expressionType: SIMPLE
+    column:
+      column_name: requisition_id
+      type: String
+    aggregate: COUNT_DISTINCT
+    label: "Requisitions"
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SQL
+      sqlExpression: "total_received_quantity > 0"
+      subject: total_received_quantity
+  time_range: "Last 10 years"
+  row_limit: 10000
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels: true
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  label_type: key_value_percent
+  number_format: SMART_NUMBER
+  date_format: smart_date
+  show_labels_threshold: 5
+  outerRadius: 70
+  innerRadius: 30
+query_context: null

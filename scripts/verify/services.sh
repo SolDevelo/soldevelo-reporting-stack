@@ -40,7 +40,7 @@ echo "Verify: Platform services"
 echo "-------------------------------"
 
 check "Kafka broker (external listener)" \
-  "kafka-broker-api-versions.sh --bootstrap-server localhost:${KAFKA_EXTERNAL_PORT} 2>/dev/null || docker compose --env-file \"$REPO_ROOT/.env\" -f \"$REPO_ROOT/compose/docker-compose.yml\" exec -T kafka kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null"
+  "kafka-broker-api-versions.sh --bootstrap-server localhost:${KAFKA_EXTERNAL_PORT} 2>/dev/null || docker compose --env-file \"$REPO_ROOT/.env\" -f \"$REPO_ROOT/compose/docker-compose.yml\" exec -T kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null"
 
 check "Kafka Connect REST API" \
   "curl -sf http://localhost:${CONNECT_PORT}/connectors"

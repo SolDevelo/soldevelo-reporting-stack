@@ -63,7 +63,7 @@ check "Connector '${CONNECTOR_NAME}' is RUNNING" check_connector_running
 check_cdc_topics() {
   local topics
   topics=$(docker compose --env-file "$REPO_ROOT/.env" -f "$REPO_ROOT/compose/docker-compose.yml" exec -T kafka \
-    kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null)
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null)
   local cdc_count
   cdc_count=$(echo "$topics" | grep -c "^${DEBEZIUM_TOPIC_PREFIX}\." || true)
   if [ "$cdc_count" -lt 1 ]; then
@@ -89,7 +89,7 @@ check_cdc_streaming() {
   local before after
 
   before=$($COMPOSE_CMD exec -T kafka \
-    kafka-get-offsets.sh --bootstrap-server localhost:9092 \
+    /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
     --topic "$HEARTBEAT_TOPIC" 2>/dev/null | cut -d: -f3)
 
   if [ -z "$before" ]; then
@@ -101,7 +101,7 @@ check_cdc_streaming() {
   sleep 12
 
   after=$($COMPOSE_CMD exec -T kafka \
-    kafka-get-offsets.sh --bootstrap-server localhost:9092 \
+    /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
     --topic "$HEARTBEAT_TOPIC" 2>/dev/null | cut -d: -f3)
 
   if [ "$after" -gt "$before" ] 2>/dev/null; then

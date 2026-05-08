@@ -41,8 +41,8 @@ with facility_program_schedules as (
 
 expected as (
   select
-    fps.facility_id,
-    fps.program_id,
+    fps.facility_id  as facility_id,
+    fps.program_id   as program_id,
     pp.id            as period_id,
     pp.name          as period_name,
     pp.start_date    as period_start_date,

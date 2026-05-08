@@ -19,13 +19,14 @@ params:
   adhoc_filters: []
   time_range: "Last 12 months"
   row_limit: 10000
-  aggregateFunction: Mean
-  rowOrder: value_z_to_a
+  aggregateFunction: Average
+  rowOrder: key_a_to_z
   colOrder: key_a_to_z
   rowSubtotalPosition: false
   colSubtotalPosition: false
   rowTotals: false
   colTotals: false
   valueFormat: ".1%"
+  metricsLayout: COLUMNS
   conditional_formatting: []
 query_context: null

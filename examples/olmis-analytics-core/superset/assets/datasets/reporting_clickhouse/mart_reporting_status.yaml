@@ -135,6 +135,15 @@ columns:
     filterable: true
     expression: null
     description: "Bucket of day-of-month when the report was submitted: 'Before 15th' / 'Between 16th - 20th' / 'After 20th'. Null for non-reports."
+  - column_name: period_year
+    verbose_name: Year
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: "toString(toYear(period_end_date))"
+    description: "Calendar year of the period end date (string for grouping). Used by the Annual Reporting Rate chart."
 metrics:
   - metric_name: count
     verbose_name: "COUNT(*)"

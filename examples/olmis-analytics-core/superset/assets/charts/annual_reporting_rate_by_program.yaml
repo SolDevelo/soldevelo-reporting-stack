@@ -15,9 +15,7 @@ params:
   metrics:
     - reporting_rate
   columns:
-    - expressionType: SQL
-      sqlExpression: "toString(toYear(period_end_date))"
-      label: "Year"
+    - period_year
   adhoc_filters: []
   bar_stacked: false
   order_bars: true

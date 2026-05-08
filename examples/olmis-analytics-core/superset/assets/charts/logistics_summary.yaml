@@ -2,8 +2,8 @@ slice_name: "Logistics Summary Report"
 viz_type: table
 uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000046"
 version: "1.0.0"
-dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
-description: "Per-facility stock snapshot (closing balance, average monthly consumption, stock on hand) for the products that drove the most consumption in the latest reporting period. Defaults to the top 5 most-consumed products via a subquery filter."
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000040"
+description: "Per-facility stock snapshot (consumption, AMC, stock on hand) for the products that drove the most consumption in the latest reporting period. The 'top 5 most-consumed products' selection is materialized as the mart_logistics_summary mart, refreshed on every dbt build."
 certified_by: null
 certification_details: null
 is_managed_externally: false
@@ -19,20 +19,7 @@ params:
     - average_consumption
     - total_consumed_quantity
   metrics: []
-  adhoc_filters:
-    - clause: WHERE
-      expressionType: SQL
-      sqlExpression: |
-        product_name IN (
-          SELECT product_name FROM curated.mart_stock_status
-          WHERE period_end_date >= toStartOfMonth(today()) - INTERVAL 1 MONTH
-            AND period_end_date <= today()
-            AND total_consumed_quantity IS NOT NULL
-          GROUP BY product_name
-          ORDER BY SUM(total_consumed_quantity) DESC
-          LIMIT 5
-        )
-      subject: product_name
+  adhoc_filters: []
   row_limit: 10000
   order_by_cols: []
   server_pagination: true

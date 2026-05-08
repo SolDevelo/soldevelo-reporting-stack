@@ -120,6 +120,21 @@ models:
                 values:
                   - Did not report
 
+  - name: mart_logistics_summary
+    description: >
+      Subset of mart_stock_status filtered to the top-5 products by total
+      consumption in the most recent reporting month. Backs the Logistics
+      Summary Report chart on the Consumption dashboard. Refreshed on every
+      dbt build.
+    columns:
+      - name: line_item_id
+        tests:
+          - not_null
+          - unique
+      - name: product_name
+        tests:
+          - not_null
+
   - name: mart_reporting_status
     description: >
       Reporting outcome per (facility × program × period). Superset of

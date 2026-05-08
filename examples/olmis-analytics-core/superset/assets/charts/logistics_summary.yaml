@@ -24,8 +24,7 @@ params:
   adhoc_filters: []
   row_limit: 10000
   order_by_cols:
-    - - period_end_date
-      - false
+    - '["period_end_date", false]'
   server_pagination: true
   server_page_length: 25
   show_cell_bars: false

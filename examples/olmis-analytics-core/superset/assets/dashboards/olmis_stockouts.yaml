@@ -34,7 +34,7 @@ metadata:
         enableEmptyFilter: false
         defaultToFirstItem: false
         multiSelect: true
-        searchAllOptions: true
+        searchAllOptions: false
         inverseSelection: false
       type: NATIVE_FILTER
       description: ""
@@ -59,7 +59,7 @@ metadata:
         enableEmptyFilter: false
         defaultToFirstItem: false
         multiSelect: true
-        searchAllOptions: true
+        searchAllOptions: false
         inverseSelection: false
       type: NATIVE_FILTER
       description: ""
@@ -84,7 +84,7 @@ metadata:
         enableEmptyFilter: false
         defaultToFirstItem: false
         multiSelect: true
-        searchAllOptions: true
+        searchAllOptions: false
         inverseSelection: false
       type: NATIVE_FILTER
       description: ""
@@ -109,7 +109,7 @@ metadata:
         enableEmptyFilter: false
         defaultToFirstItem: false
         multiSelect: true
-        searchAllOptions: true
+        searchAllOptions: false
         inverseSelection: false
       type: NATIVE_FILTER
       description: ""
@@ -134,7 +134,7 @@ metadata:
         enableEmptyFilter: false
         defaultToFirstItem: false
         multiSelect: true
-        searchAllOptions: true
+        searchAllOptions: false
         inverseSelection: false
       type: NATIVE_FILTER
       description: ""
@@ -159,7 +159,7 @@ metadata:
         enableEmptyFilter: false
         defaultToFirstItem: false
         multiSelect: true
-        searchAllOptions: true
+        searchAllOptions: false
         inverseSelection: false
       type: NATIVE_FILTER
       description: ""
@@ -184,7 +184,7 @@ metadata:
         enableEmptyFilter: false
         defaultToFirstItem: false
         multiSelect: true
-        searchAllOptions: true
+        searchAllOptions: false
         inverseSelection: false
       type: NATIVE_FILTER
       description: ""

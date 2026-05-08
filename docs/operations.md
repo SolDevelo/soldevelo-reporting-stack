@@ -138,3 +138,16 @@ Upgrade checklist (when 26.8 ships):
 5. Update the version note at the top of `docs/operations.md` to point at the next LTS
 
 Until then, periodically pick up new patch releases on the `25.8.x.y-alpine` line for security fixes (the `.x.y` segment moves; the `25.8` major.minor stays).
+
+### Superset 6.1.0 stable — move off the `6.1.0rc3` pre-release pin
+
+`superset/Dockerfile` is currently pinned to `apache/superset:6.1.0rc3-py312` (a release candidate). This is intentional: Superset 6.0.0 stable has a native-filter bug ([apache/superset#34617](https://github.com/apache/superset/issues/34617)) where the dashboard filter Apply button stays disabled and user selections never propagate to chart queries. The fix (PR [#38479](https://github.com/apache/superset/pull/38479)) was merged into Superset master after 6.0.1 was cut, so neither 6.0.0 nor 6.0.1 contain it; 6.1.0rc3 does.
+
+When **Superset 6.1.0 stable** ships:
+1. Confirm `apache/superset:6.1.0-py312` (or whatever the final tag is) is available on Docker Hub
+2. Edit `superset/Dockerfile` — change the base image from `6.1.0rc3-py312` to the stable tag, and remove the comment block explaining the rc pin
+3. Re-build (`make build SVC=superset-init`) and restart Superset
+4. Smoke-test filter behavior on every dashboard (Apply button enables on filter pick → charts re-query with the filter applied) — `make verify-superset` does not cover this; manual click-through is needed
+5. If filter Apply button is broken again, [#34617](https://github.com/apache/superset/issues/34617) regressed; downgrade or hold-back accordingly
+
+Track Superset stable releases at <https://github.com/apache/superset/releases>. As of this note, 6.1.0rc3 was published 2026-05-01 and the stable cut typically follows within 2–4 weeks of the final rc.

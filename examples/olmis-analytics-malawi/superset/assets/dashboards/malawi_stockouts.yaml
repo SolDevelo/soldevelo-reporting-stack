@@ -151,6 +151,7 @@ position:
     children:
       - ROW-mw-stockout-1
       - ROW-mw-stockout-2
+      - ROW-mw-stockout-3
     parents:
       - ROOT_ID
   ROW-mw-stockout-1:
@@ -201,3 +202,27 @@ position:
       width: 12
       sliceName: "Malawi: Stockout Rate by Product"
       uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000022"
+  ROW-mw-stockout-3:
+    type: ROW
+    id: ROW-mw-stockout-3
+    children:
+      - CHART-mw-district-trend
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-mw-district-trend:
+    type: CHART
+    id: CHART-mw-district-trend
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-mw-stockout-3
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Malawi: Stockout Rate by District"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000024"

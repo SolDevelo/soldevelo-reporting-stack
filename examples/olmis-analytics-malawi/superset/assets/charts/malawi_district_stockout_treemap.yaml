@@ -1,0 +1,23 @@
+slice_name: "Malawi: District Stockout Rate (Tracer Products)"
+viz_type: treemap_v2
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000031"
+version: "1.0.0"
+dataset_uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+description: "Stockout rate per district across all Malawi tracer products in the most recent month. Treemap area = stockout rate."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: treemap_v2
+  groupby:
+    - zone_name
+  metric: stockout_rate
+  adhoc_filters: []
+  time_range: "Last month"
+  row_limit: 1000
+  color_scheme: supersetColors
+  number_format: ",.1%"
+  show_labels: true
+  show_upper_labels: true
+query_context: null

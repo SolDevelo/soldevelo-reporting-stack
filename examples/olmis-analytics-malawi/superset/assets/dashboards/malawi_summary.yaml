@@ -1,0 +1,250 @@
+dashboard_title: "Malawi Summary"
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000030"
+version: "1.0.0"
+description: "Executive summary for Malawi tracer products: district stockout treemap, programmatic stockout pivot, multi-program stockout trend, top stocked-out products, and current inventory snapshot per program."
+slug: malawi-summary
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: true
+  filter_bar_orientation: HORIZONTAL
+  native_filter_configuration:
+    - id: NATIVE_FILTER-malawi-program
+      name: Health Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: malawi_program
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-program
+      name: Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: program_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: zone_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-treemap
+      - ROW-trend
+      - ROW-pivot
+      - ROW-tables
+    parents:
+      - ROOT_ID
+  ROW-treemap:
+    type: ROW
+    id: ROW-treemap
+    children:
+      - CHART-treemap
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-treemap:
+    type: CHART
+    id: CHART-treemap
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-treemap
+    meta:
+      chartId: 0
+      height: 60
+      width: 12
+      sliceName: "Malawi: District Stockout Rate (Tracer Products)"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000031"
+  ROW-trend:
+    type: ROW
+    id: ROW-trend
+    children:
+      - CHART-trend
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-trend:
+    type: CHART
+    id: CHART-trend
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-trend
+    meta:
+      chartId: 0
+      height: 60
+      width: 12
+      sliceName: "Malawi: Program Stockout Rate (Tracer Products, Last 13 Months)"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000033"
+  ROW-pivot:
+    type: ROW
+    id: ROW-pivot
+    children:
+      - CHART-pivot
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-pivot:
+    type: CHART
+    id: CHART-pivot
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-pivot
+    meta:
+      chartId: 0
+      height: 60
+      width: 12
+      sliceName: "Malawi: Avg. Programmatic Stockout Rate (Last 12 Months)"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000032"
+  ROW-tables:
+    type: ROW
+    id: ROW-tables
+    children:
+      - CHART-products
+      - CHART-snapshot
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-products:
+    type: CHART
+    id: CHART-products
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-tables
+    meta:
+      chartId: 0
+      height: 70
+      width: 6
+      sliceName: "Malawi: Product Stockout (Last 12 Months)"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000034"
+  CHART-snapshot:
+    type: CHART
+    id: CHART-snapshot
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-tables
+    meta:
+      chartId: 0
+      height: 70
+      width: 6
+      sliceName: "Malawi: Program Current Inventory Snapshot"
+      uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000035"

@@ -330,17 +330,45 @@ The decision to consolidate (rather than emit 6 separate hardcoded pies in core,
 - **Annual Reporting Rate by Program**: mw-distro's `processing_periods` end at Dec 2025 with sparse SUBMITTED records, so most years will read close to 0% reporting rate. Live data populates the chart properly.
 - **Reporting Rate by Program**: most non-Essential-Meds programs in mw-distro show ~100% "Did not report" because there are very few SUBMITTED status_changes. The math is correct; this reflects test-data sparsity, not a migration defect.
 
-### Deferred to Phase 7b (Malawi extension)
+## Phase 7b: Master Malawi extension
 
-Five Master charts that are Malawi-specific (hardcoded tracer-product lists, Malawi program names) will land in `examples/olmis-analytics-malawi`:
+Five Master charts moved to `examples/olmis-analytics-malawi` because they are scoped to Malawi tracer products (and use Malawi-specific program/product mappings). All five compose into a single new dashboard.
 
-- District Stockout Rate - All Tracer Products Current Month (treemap)
-- Avg. Programmatic Stockout Rate - Last 12 months (pivot_table)
-- Program Stockout Rate - All Tracer Products (time_table)
-- Product Stockout in Last 12 Months (table)
-- Program Current Inventory Snapshot (table)
+### Extension dashboard — `Malawi Summary` (slug: `malawi-summary`)
 
-These charts will compose into a `Malawi Summary` extension dashboard (or fold into existing extension dashboards — TBD in 7b).
+| Legacy chart | Migrated chart | Status | Notes |
+|---|---|---|---|
+| District Stockout Rate - All Tracer Products Current Month (treemap) | `malawi_district_stockout_treemap.yaml` | ✅ Equivalent | `viz_type: treemap_v2` (the modern ECharts version; legacy `treemap` viz is deprecated). groupby `zone_name`, metric `stockout_rate`. Time-range: legacy used a CASE expression on day-of-month to wire to the previous calendar period; migrated chart uses `"Last month"` rolling window |
+| Avg. Programmatic Stockout Rate - Last 12 months (pivot_table) | `malawi_programmatic_stockout_pivot.yaml` (pivot_table_v2) | 📝 Modernization | Same shape: rows = period_name, cols = program_name, metric = stockout_rate. Modernized to `pivot_table_v2`. Preserves legacy `amc != 0` filter (renamed to `average_consumption`); on `mart_malawi_stock_status` (Malawi tracer products only) |
+| Program Stockout Rate - All Tracer Products (time_table) | `malawi_program_stockout_trend.yaml` (echarts_timeseries_line) | 📝 Modernization | The legacy `time_table` viz was removed in Superset 5+. Replaced with a multi-series line chart — one line per program, monthly grain, last 13 months. Same metric (`stockout_rate`). Loses the discrete current/3mo/6mo/12mo column layout but gains a continuous trend; the mini-sparkline "Programmatic Rate" column from the time_table is implicit in the trend itself |
+| Product Stockout in Last 12 Months (table) | `malawi_product_stockout_12mo.yaml` | ✅ Equivalent | Aggregate-mode table grouped by `product_name` with `stockout_line_count` metric (`SUM(CASE WHEN stock_on_hand = 0 THEN 1 ELSE 0 END)`, matches legacy `Product Stock Out`). Sorted desc, server-paginated 25/page (legacy was unpaginated). Search enabled. Friendly column labels |
+| Program Current Inventory Snapshot (table) | `malawi_program_inventory_snapshot.yaml` | ✅ Equivalent | Table grouped by `program_name` with three metrics (`%HF Understocked`, `%HF Adequately Stocked`, `%HF Overstocked`) using the legacy `COUNT(DISTINCT facility_id WHERE stock_status = X) / COUNT(DISTINCT facility_id)` semantics — implemented in ClickHouse with `uniqExactIf / uniqExact`. Time-range: legacy used the same CASE day-of-month expression; migrated chart uses `"Last month"` |
+
+### `mart_malawi_stock_status` dataset extensions
+
+Added two columns and four metrics to expose what Phase 7b charts need:
+
+- **Columns**: `average_consumption`, `stock_on_hand`
+- **Metrics**:
+  - `pct_facilities_understocked` / `pct_facilities_adequately_stocked` / `pct_facilities_overstocked` — share of facilities with at least one product in that bucket. ClickHouse: `uniqExactIf(facility_id, stock_status = 'X') / nullIf(uniqExact(facility_id), 0)`
+  - `stockout_line_count` — `SUM(CASE WHEN stock_on_hand = 0 THEN 1 ELSE 0 END)`, matches legacy "Product Stock Out"
+
+No SQL changes to `mart_malawi_stock_status.sql` were needed — all required columns were already passed through from `mart_stock_status`.
+
+### "%HF" semantics — preserved as-is
+
+Legacy `%HF Understocked` is `COUNT(DISTINCT facility_id WHERE stock_status = 'Understocked') / COUNT(DISTINCT facility_id)`, i.e., "share of facilities that have at least one Understocked product line." A facility with one understocked product among five counts the same as a facility with all five understocked. The three `%HF` percentages can therefore sum to >100% (a facility can simultaneously have an Understocked product *and* an Overstocked product). Migration preserves the legacy semantics; documenting here so the >100% sum is not flagged as a bug.
+
+### Test-data caveats
+
+mw-distro contains very few rows in `mart_malawi_stock_status` (~21 line items across all periods, only ~3 distinct Malawi programs represented in the seed-mapped subset). Most charts will show sparse or empty results in the mw-distro environment but compute correctly. Live Malawi deployments populate the dashboard properly.
+
+Specifically:
+- **District Stockout Rate (treemap)** with `time_range: "Last month"` — likely empty, since the most recent mw-distro period_end_date is Dec 2025 and today is May 2026.
+- **Program Current Inventory Snapshot** — same `"Last month"` issue.
+- **Product Stockout / Programmatic Stockout pivot / Program Stockout trend** — use 12-month or 13-month windows, so they catch the 2025 data and render with the small sample. Numbers may look extreme (high stockout rates) due to the 16-of-21 stockout share in the seed mapping; this is the data, not the migration.
+
+## Reports dashboard — not migrated as a separate dashboard
 
 ## Reports dashboard — not migrated as a separate dashboard
 

@@ -126,6 +126,24 @@ columns:
     filterable: true
     expression: null
     description: null
+  - column_name: average_consumption
+    verbose_name: Average Consumption
+    is_dttm: false
+    is_active: true
+    type: Int32
+    groupby: false
+    filterable: true
+    expression: null
+    description: null
+  - column_name: stock_on_hand
+    verbose_name: Stock on Hand
+    is_dttm: false
+    is_active: true
+    type: Int32
+    groupby: false
+    filterable: true
+    expression: null
+    description: null
 metrics:
   - metric_name: stockout_rate
     verbose_name: "Stockout Rate"
@@ -149,5 +167,37 @@ metrics:
     expression: "COUNT(*)"
     description: Total number of line items
     d3format: null
+    extra: null
+    warning_text: null
+  - metric_name: pct_facilities_understocked
+    verbose_name: "% HF Understocked"
+    metric_type: null
+    expression: "uniqExactIf(facility_id, stock_status = 'Understocked') / nullIf(uniqExact(facility_id), 0)"
+    description: "Share of facilities that have at least one Understocked tracer product. Matches legacy '%HF Understocked' metric semantics."
+    d3format: ".1%"
+    extra: null
+    warning_text: null
+  - metric_name: pct_facilities_adequately_stocked
+    verbose_name: "% HF Adequately Stocked"
+    metric_type: null
+    expression: "uniqExactIf(facility_id, stock_status = 'Adequately stocked') / nullIf(uniqExact(facility_id), 0)"
+    description: "Share of facilities that have at least one Adequately stocked tracer product. Matches legacy '%HF Adequately stocked' metric semantics."
+    d3format: ".1%"
+    extra: null
+    warning_text: null
+  - metric_name: pct_facilities_overstocked
+    verbose_name: "% HF Overstocked"
+    metric_type: null
+    expression: "uniqExactIf(facility_id, stock_status = 'Overstocked') / nullIf(uniqExact(facility_id), 0)"
+    description: "Share of facilities that have at least one Overstocked tracer product. Matches legacy '%HF Overstocked' metric semantics."
+    d3format: ".1%"
+    extra: null
+    warning_text: null
+  - metric_name: stockout_line_count
+    verbose_name: "Stocked Out Lines"
+    metric_type: null
+    expression: "SUM(CASE WHEN stock_on_hand = 0 THEN 1 ELSE 0 END)"
+    description: "Number of line items where stock_on_hand = 0 (matches legacy 'Product Stock Out' metric)"
+    d3format: ",.0f"
     extra: null
     warning_text: null

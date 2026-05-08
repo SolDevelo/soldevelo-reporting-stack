@@ -1,0 +1,36 @@
+slice_name: "Malawi: Program Current Inventory Snapshot"
+viz_type: table
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000035"
+version: "1.0.0"
+dataset_uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+description: "Current snapshot of facility-level stock status per OpenLMIS program for Malawi tracer products. Each metric is the share of facilities with at least one product in that stock-status bucket."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+    - program_name
+  metrics:
+    - pct_facilities_understocked
+    - pct_facilities_adequately_stocked
+    - pct_facilities_overstocked
+  adhoc_filters: []
+  time_range: "Last month"
+  row_limit: 10000
+  order_by_cols:
+    - '["program_name", true]'
+  server_pagination: false
+  show_cell_bars: false
+  color_pn: false
+  table_timestamp_format: smart_date
+  page_length: 25
+  include_search: false
+  header_font_size: 0.6
+  cell_font_size: 0.6
+  column_config:
+    program_name:
+      customColumnName: "Program"
+query_context: null

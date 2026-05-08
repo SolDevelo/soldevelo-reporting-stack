@@ -1,0 +1,36 @@
+slice_name: "Malawi: Avg. Programmatic Stockout Rate (Last 12 Months)"
+viz_type: pivot_table_v2
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000032"
+version: "1.0.0"
+dataset_uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+description: "Average stockout rate by period × OpenLMIS program for Malawi tracer products. Excludes line items with no consumption (average_consumption = 0 or null) so unused products do not skew the rate."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: pivot_table_v2
+  groupbyRows:
+    - period_name
+  groupbyColumns:
+    - program_name
+  metrics:
+    - stockout_rate
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SQL
+      sqlExpression: "average_consumption IS NOT NULL AND average_consumption != 0"
+      subject: average_consumption
+  time_range: "Last 12 months"
+  row_limit: 10000
+  aggregateFunction: Average
+  rowOrder: key_a_to_z
+  colOrder: key_a_to_z
+  rowSubtotalPosition: false
+  colSubtotalPosition: false
+  rowTotals: false
+  colTotals: false
+  valueFormat: ".1%"
+  metricsLayout: COLUMNS
+  conditional_formatting: []
+query_context: null

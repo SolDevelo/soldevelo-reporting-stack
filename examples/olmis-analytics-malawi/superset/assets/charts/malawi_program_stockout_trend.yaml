@@ -1,0 +1,36 @@
+slice_name: "Malawi: Program Stockout Rate (Tracer Products, Last 13 Months)"
+viz_type: echarts_timeseries_line
+uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000033"
+version: "1.0.0"
+dataset_uuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+description: "Stockout rate over time per OpenLMIS program for Malawi tracer products. Replaces the legacy 'time_table' viz (removed in Superset 5+) with a multi-series line — same metric, monthly trend instead of discrete current/3mo/6mo/12mo columns."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_line
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - stockout_rate
+  groupby:
+    - program_name
+  adhoc_filters: []
+  time_range: "Last 13 months"
+  row_limit: 10000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Period
+  y_axis_title: Stockout Rate
+  y_axis_format: ".1%"
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  markerEnabled: true
+  markerSize: 6
+  zoomable: true
+query_context: null

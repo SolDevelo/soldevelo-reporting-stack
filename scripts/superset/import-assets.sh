@@ -7,8 +7,11 @@
 # The asset path should contain a metadata.yaml at its root and subdirectories
 # for databases/, datasets/, charts/, dashboards/.
 #
-# Assets are stored as plain YAML in Git (diffable, reviewable) and ZIPped at
-# runtime for the Superset import-dashboards CLI.
+# Assets are stored as plain YAML in Git (diffable, reviewable) and copied
+# into the Superset container for the import-directory CLI with --overwrite,
+# so re-imports actually replace existing entities (the legacy
+# import-dashboards CLI takes a ZIP but won't overwrite existing dataset
+# column lists, so YAML edits to add/remove columns wouldn't propagate).
 # Database passwords are NOT stored in Git — they are patched after import
 # using environment variables.
 # =============================================================================
@@ -35,20 +38,11 @@ COMPOSE_CMD="docker compose --env-file $REPO_ROOT/.env -f $REPO_ROOT/compose/doc
 
 echo "Importing assets from: $ASSET_PATH"
 
-# Create a temporary ZIP from the asset directory.
-# The ZIP must have a root directory because Superset's import strips the
-# first path component (remove_root).
-TMPZIP=$(mktemp /tmp/superset-assets-XXXXXX.zip)
-rm -f "$TMPZIP"
-trap 'rm -f "$TMPZIP"' EXIT
+# Copy the asset directory into the container and run import-directory -o.
+TARGET="/tmp/superset-assets-$(basename "$ASSET_PATH")-$$"
+trap '$COMPOSE_CMD exec -T -u root superset rm -rf "$TARGET" 2>/dev/null || true' EXIT
 
-ASSET_DIRNAME="$(basename "$ASSET_PATH")"
-(cd "$(dirname "$ASSET_PATH")" && zip -r "$TMPZIP" "$ASSET_DIRNAME/" -x '*/.*' '.*' > /dev/null)
-
-# Copy ZIP into the container and import
-$COMPOSE_CMD cp "$TMPZIP" superset:/tmp/assets-import.zip
-$COMPOSE_CMD exec -T superset superset import-dashboards \
-  -p /tmp/assets-import.zip -u "${SUPERSET_ADMIN_USER:-admin}"
-$COMPOSE_CMD exec -T -u root superset rm -f /tmp/assets-import.zip
+$COMPOSE_CMD cp "$ASSET_PATH" "superset:$TARGET"
+$COMPOSE_CMD exec -T superset superset import-directory -o "$TARGET"
 
 echo "  Import complete."

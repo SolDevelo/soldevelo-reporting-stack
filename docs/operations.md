@@ -143,6 +143,8 @@ Until then, periodically pick up new patch releases on the `25.8.x.y-alpine` lin
 
 `superset/Dockerfile` is currently pinned to `apache/superset:6.1.0rc3-py312` (a release candidate). This is intentional: Superset 6.0.0 stable has a native-filter bug ([apache/superset#34617](https://github.com/apache/superset/issues/34617)) where the dashboard filter Apply button stays disabled and user selections never propagate to chart queries. The fix (PR [#38479](https://github.com/apache/superset/pull/38479)) was merged into Superset master after 6.0.1 was cut, so neither 6.0.0 nor 6.0.1 contain it; 6.1.0rc3 does.
 
+**Second known issue carried by 6.1.0rc3:** native filters with `filter_bar_orientation: HORIZONTAL` still exhibit the same Apply-button-disabled / selections-don't-propagate behavior — the fix only landed for the default vertical (sidebar) layout. As a workaround we removed `filter_bar_orientation: HORIZONTAL` from every migrated dashboard. Re-evaluate whether horizontal filter bars work when 6.1.0 stable ships; if so, add the orientation back to dashboards where the horizontal layout fits better.
+
 When **Superset 6.1.0 stable** ships:
 1. Confirm `apache/superset:6.1.0-py312` (or whatever the final tag is) is available on Docker Hub
 2. Edit `superset/Dockerfile` — change the base image from `6.1.0rc3-py312` to the stable tag, and remove the comment block explaining the rc pin

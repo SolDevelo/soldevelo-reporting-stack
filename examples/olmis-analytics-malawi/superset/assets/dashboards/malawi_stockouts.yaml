@@ -18,7 +18,6 @@ metadata:
   color_scheme_domain: []
   shared_label_colors: []
   cross_filters_enabled: true
-  filter_bar_orientation: HORIZONTAL
   native_filter_configuration:
     - id: NATIVE-FILTER-malawi-program
       name: Health Program

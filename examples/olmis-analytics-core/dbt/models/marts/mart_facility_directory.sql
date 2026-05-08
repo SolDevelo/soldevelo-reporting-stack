@@ -15,6 +15,7 @@ select
   f.name            as facility_name,
   f.active          as facility_active,
   f.enabled         as facility_enabled,
+  ft.name           as facility_type_name,
   gz.id             as geographic_zone_id,
   gz.code           as geographic_zone_code,
   gz.name           as geographic_zone_name,
@@ -23,6 +24,8 @@ select
   parent_gz.id      as parent_zone_id,
   parent_gz.name    as parent_zone_name
 from {{ ref('stg_facilities') }} f
+left join {{ ref('stg_facility_types') }} ft
+  on f.type_id = ft.id
 left join {{ ref('stg_geographic_zones') }} gz
   on f.geographic_zone_id = gz.id
 left join {{ ref('stg_geographic_zones') }} parent_gz

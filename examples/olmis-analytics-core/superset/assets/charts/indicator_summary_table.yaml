@@ -1,0 +1,31 @@
+slice_name: "Indicator Summary: Reporting Rate by Program (Last 12 Months)"
+viz_type: pivot_table_v2
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000083"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+description: "Reporting rate per program × period over the last 12 months. Rows = period, Columns = program."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: pivot_table_v2
+  groupbyRows:
+    - period_name
+  groupbyColumns:
+    - program_name
+  metrics:
+    - reporting_rate
+  adhoc_filters: []
+  time_range: "Last 12 months"
+  row_limit: 10000
+  aggregateFunction: Mean
+  rowOrder: value_z_to_a
+  colOrder: key_a_to_z
+  rowSubtotalPosition: false
+  colSubtotalPosition: false
+  rowTotals: false
+  colTotals: false
+  valueFormat: ".1%"
+  conditional_formatting: []
+query_context: null

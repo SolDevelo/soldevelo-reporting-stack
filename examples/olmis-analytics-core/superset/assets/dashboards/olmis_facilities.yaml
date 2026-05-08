@@ -1,0 +1,135 @@
+dashboard_title: "OLMIS Facilities"
+uuid: "d1e2f3a4-b5c6-4d7e-8f9a-000000000070"
+version: "1.0.0"
+description: "Facility directory: searchable list of facilities with type, district, and region."
+slug: olmis-facilities
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: true
+  filter_bar_orientation: HORIZONTAL
+  native_filter_configuration:
+    - id: NATIVE_FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000070"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: geographic_zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000070"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-type
+      name: Type
+      filterType: filter_select
+      targets:
+        - column:
+            name: facility_type_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000070"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-list
+    parents:
+      - ROOT_ID
+  ROW-list:
+    type: ROW
+    id: ROW-list
+    children:
+      - CHART-list
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-list:
+    type: CHART
+    id: CHART-list
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-list
+    meta:
+      chartId: 0
+      height: 80
+      width: 12
+      sliceName: "Facility List"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000071"

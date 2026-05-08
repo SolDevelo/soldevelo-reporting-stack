@@ -262,18 +262,89 @@ The shape of the distribution is unchanged. Switching the underlying metric to `
 - **Estimated Order Value** uses `time_range: "Last quarter"`. mw-distro test data ends Dec 2025; today is May 2026; "Last quarter" resolves to Jan–Mar 2026. Chart will be empty in mw-distro. Works on live data.
 - **Order Timeliness** uses `time_range: "Last month"`. Required time-shifting `requisitions.modifieddate` forward into early 2026 so the filter catches anything (same DB-only fix pattern we applied for status_changes in Phase 5). After the shift, ~18 rows fall in April 2026 with `order_timeliness = 'After 20th'` (single pie slice). Live deployments would have varied date-of-month values and a more balanced 3-slice pie.
 
-## Phase 7: Administrative + Master
+## Phase 7a: Administrative + Master core
 
-⚠️ Pending.
+Phase 7 is split into 7a (this phase: Administrative dashboard + Master core charts) and 7b (Master Malawi-extension charts). The split keeps the review surface manageable and lets the core land before the Malawi-specific layers stack on top.
 
-## Master and Reports dashboards
+### Core dashboard — `OLMIS Facilities` (slug: `olmis-facilities`)
 
-The legacy Master dashboard and Reports dashboard are composites that
-duplicate charts from the program-specific dashboards. The migration plan
-classifies Reports as "do not migrate as a separate dashboard" (its unique
-charts are absorbed elsewhere). Master will be migrated as a curated
-executive summary in Phase 7. Specific deviations will be documented when
-that phase begins.
+Migration of the legacy Administrative dashboard (one chart: Facility List).
+
+| Legacy chart | Migrated chart | Status | Notes |
+|---|---|---|---|
+| Facility List (table) | `facility_list.yaml` | ✅ Equivalent (minus operator) | Raw-mode table with code, name, type, district, region. Server-paginated 25/page. Sort by name. Friendly column labels via `column_config.customColumnName`. Filter bar: Region · District · Type. Operator column dropped — see "Facility operator gap" below |
+
+### `mart_facility_directory` extension
+
+Added `facility_type_name` (joined from `stg_facility_types`). The dataset YAML for `mart_facility_directory` did not exist before Phase 7a — it was the first time this mart needed Superset exposure.
+
+### Facility operator gap (⚠️ Gap)
+
+Legacy Facility List included `operator_name` (e.g., GoM, CHAM, private). Source comes from `referencedata.facility_operators`, which is **not in the CDC table allowlist**. Adding the column requires:
+
+1. Add `referencedata.facility_operators` to `SOURCE_PG_TABLE_ALLOWLIST` in `.env`
+2. Add raw landing table in `clickhouse-init`
+3. Add `stg_facility_operators.sql` staging model
+4. Join in `mart_facility_directory.sql` and expose in dataset YAML
+5. `make connector-refresh` to snapshot the new table
+
+Decision: documented as a Gap rather than blocking Phase 7a on it. Re-add when an adopter actually needs operator-based reporting.
+
+### Core dashboard — `OLMIS Summary` (slug: `olmis-summary`)
+
+Migration of the legacy Master dashboard, core charts only. The 5 Malawi-extension charts (district stockout treemap, programmatic stockout pivot, program stockout time table, product stockout, current inventory snapshot) are deferred to **Phase 7b**.
+
+| Legacy chart(s) | Migrated chart | Status | Notes |
+|---|---|---|---|
+| Master Filter + Product Filter (filter_boxes) | Native horizontal filter bar (Program · Region · District · Period) | 📝 Modernization | Same as Phases 1–6 |
+| Period (table, single cell) | (dropped — period is in the filter bar) | 📝 Modernization | Legacy chart was a one-row table showing the current period name. Native filter bar already shows the period scope; no separate chart needed |
+| 6 × Reporting Rate per program (HIV / RH / TB / Essential Meds / Nutrition / Malaria pies, all hardcoded `program_name = '<X>'`) | `reporting_rate_by_program.yaml` (1 dist_bar, 100% stacked, groupby program_name × reporting_status) | 📝 Modernization | Replaces 6 hardcoded pies with a single auto-adapting stacked bar. Reads program list from data — no hardcoded program names. Visual contract preserved: at-a-glance per-program reporting/not-reporting proportions. See "Row of pies → stacked bar" below |
+| Reporting Rate (overall pie, shared) | reused `reporting_rate_pie.yaml` from Phase 3 | ✅ Equivalent | |
+| Timeliness of Reports (pie) | `timeliness_of_reports.yaml` | ✅ Equivalent | groupby `report_timeliness`, COUNT(facility_id), filtered to `reporting_status = 'Reported'`. Bucketing matches legacy CASE expression: ≤15 = "Before 15th", 16–20 = "Between 16th - 20th", >20 = "After 20th". Legacy time-filter was a CASE-expression on `processing_period_enddate`; migrated chart uses the simpler "Last 12 months" rolling window. The CASE filter wired the chart to the previous calendar period; "Last 12 months" gives a multi-period view that reflects the same submission timeliness pattern more robustly |
+| Indicator Summary Table: Reporting Rate by Program (Last 12 Months) (pivot_table) | `indicator_summary_table.yaml` (pivot_table_v2) | 📝 Modernization | Same rows × cols (period × program) and same metric (`reporting_rate`). Modernized to `pivot_table_v2` viz (the v1 type was deprecated in Superset 3.x) |
+| Annual Reporting Rate by Program (dist_bar) | `annual_reporting_rate_by_program.yaml` | ✅ Equivalent | Bars grouped by year × program with `reporting_rate` metric. Year extracted via `toYear(period_end_date)` SQL column (legacy used a Postgres `processing_period_enddate_year` virtual column). `time_range: "Last 5 years"` (legacy was `"last year : end of year"` — single-year view). Migration broadens to a multi-year horizon to actually use a *bar-by-year* chart; legacy data showed one set of bars per program for one year |
+| National Reporting Rate - Last 12 Months (line) | `national_reporting_rate_trend.yaml` | ✅ Equivalent | Single-series line of `reporting_rate` over time, monthly grain, last 12 months. Matches legacy |
+| Non Reporting Facilities (table, shared) | reused `non_reporting_facilities.yaml` | ✅ Equivalent | |
+
+### `mart_reporting_status` extension
+
+Added `report_timeliness` (String, nullable): bucket of day-of-month when the report was submitted (`Before 15th` / `Between 16th - 20th` / `After 20th`). Computed from `toDayOfMonth(submitted_date)`. Null for non-reporting obligations.
+
+### Row of pies → stacked bar (📝 Modernization)
+
+Legacy Master had six near-identical pie charts hardcoded one per program (HIV, RH, TB, Essential Meds, Nutrition, Malaria), each grouped by `reporting_timeliness` (i.e., Reported / Did not report). The visual goal was at-a-glance per-program reporting health.
+
+Migration replaces the row-of-pies pattern with a single 100% stacked horizontal-bar chart (`dist_bar`, `bar_stacked: true`, `contribution: true`):
+
+- One bar per program, height normalized to 100%, stacked between Reported and Did not report
+- Programs come from the data (no hardcoded program list) — adopters with different program configs work without code changes
+- Same proportional information as the row of pies, in one chart with a shared axis
+
+Numbers per program match the legacy pies. Chart count compressed 6 → 1.
+
+The decision to consolidate (rather than emit 6 separate hardcoded pies in core, or push them to the Malawi extension) was discussed before implementation — keeping the core platform program-agnostic was prioritized over strict visual parity with the legacy 6-pie layout.
+
+### Test-data caveats
+
+- **Timeliness of Reports**: the SUBMITTED status_change records in mw-distro have `submitted_date` values whose day-of-month sits past the 20th (single bucket: "After 20th"). The chart is functionally correct; live data with varied submission days will show the full 3-slice pie.
+- **Annual Reporting Rate by Program**: mw-distro's `processing_periods` end at Dec 2025 with sparse SUBMITTED records, so most years will read close to 0% reporting rate. Live data populates the chart properly.
+- **Reporting Rate by Program**: most non-Essential-Meds programs in mw-distro show ~100% "Did not report" because there are very few SUBMITTED status_changes. The math is correct; this reflects test-data sparsity, not a migration defect.
+
+### Deferred to Phase 7b (Malawi extension)
+
+Five Master charts that are Malawi-specific (hardcoded tracer-product lists, Malawi program names) will land in `examples/olmis-analytics-malawi`:
+
+- District Stockout Rate - All Tracer Products Current Month (treemap)
+- Avg. Programmatic Stockout Rate - Last 12 months (pivot_table)
+- Program Stockout Rate - All Tracer Products (time_table)
+- Product Stockout in Last 12 Months (table)
+- Program Current Inventory Snapshot (table)
+
+These charts will compose into a `Malawi Summary` extension dashboard (or fold into existing extension dashboards — TBD in 7b).
+
+## Reports dashboard — not migrated as a separate dashboard
+
+Per the original migration plan: legacy Reports duplicated charts from Reporting Rate and Stock Status with no unique generic charts. Its unique chart (`LMIS Reporting summary` with ~120 hardcoded product names) is Malawi-specific and will land in the Malawi extension if needed.
 
 ---
 

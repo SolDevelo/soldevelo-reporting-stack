@@ -1,0 +1,290 @@
+dashboard_title: "OLMIS Summary"
+uuid: "d1e2f3a4-b5c6-4d7e-8f9a-000000000080"
+version: "1.0.0"
+description: "Executive summary: reporting rate by program, timeliness, indicator pivot, annual rates, and the 12-month national trend."
+slug: olmis-summary
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: true
+  filter_bar_orientation: HORIZONTAL
+  native_filter_configuration:
+    - id: NATIVE_FILTER-program
+      name: Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: program_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-period
+      name: Period
+      filterType: filter_select
+      targets:
+        - column:
+            name: period_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-headline
+      - ROW-trend
+      - ROW-pivot
+      - ROW-annual
+      - ROW-non-reporting
+    parents:
+      - ROOT_ID
+  ROW-headline:
+    type: ROW
+    id: ROW-headline
+    children:
+      - CHART-rate-pie
+      - CHART-timeliness
+      - CHART-rate-program
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-rate-pie:
+    type: CHART
+    id: CHART-rate-pie
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-headline
+    meta:
+      chartId: 0
+      height: 50
+      width: 4
+      sliceName: "Reporting Rate"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000031"
+  CHART-timeliness:
+    type: CHART
+    id: CHART-timeliness
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-headline
+    meta:
+      chartId: 0
+      height: 50
+      width: 4
+      sliceName: "Timeliness of Reports"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000082"
+  CHART-rate-program:
+    type: CHART
+    id: CHART-rate-program
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-headline
+    meta:
+      chartId: 0
+      height: 50
+      width: 4
+      sliceName: "Reporting Rate by Program"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000081"
+  ROW-trend:
+    type: ROW
+    id: ROW-trend
+    children:
+      - CHART-trend
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-trend:
+    type: CHART
+    id: CHART-trend
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-trend
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "National Reporting Rate - Last 12 Months"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000085"
+  ROW-pivot:
+    type: ROW
+    id: ROW-pivot
+    children:
+      - CHART-pivot
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-pivot:
+    type: CHART
+    id: CHART-pivot
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-pivot
+    meta:
+      chartId: 0
+      height: 60
+      width: 12
+      sliceName: "Indicator Summary: Reporting Rate by Program (Last 12 Months)"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000083"
+  ROW-annual:
+    type: ROW
+    id: ROW-annual
+    children:
+      - CHART-annual
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-annual:
+    type: CHART
+    id: CHART-annual
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-annual
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Annual Reporting Rate by Program"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000084"
+  ROW-non-reporting:
+    type: ROW
+    id: ROW-non-reporting
+    children:
+      - CHART-non-reporting
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-non-reporting:
+    type: CHART
+    id: CHART-non-reporting
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-non-reporting
+    meta:
+      chartId: 0
+      height: 60
+      width: 12
+      sliceName: "Non Reporting Facilities"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000015"

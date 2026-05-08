@@ -98,7 +98,18 @@ select
   case
     when s.submitted_date is null then null
     else cast(floor((toDayOfMonth(s.submitted_date) - 1) / 7) + 1 as UInt8)
-  end                                       as submitted_week_of_month
+  end                                       as submitted_week_of_month,
+
+  -- Day-of-month bucket for the "Timeliness of Reports" pie on the Master
+  -- dashboard. Legacy expression on the reporting_rate_and_timeliness MV
+  -- bucketed modified_date (= submission day) into Before 15th /
+  -- Between 16th - 20th / After 20th.
+  case
+    when s.submitted_date is null then null
+    when toDayOfMonth(s.submitted_date) <= 15 then 'Before 15th'
+    when toDayOfMonth(s.submitted_date) <= 20 then 'Between 16th - 20th'
+    else 'After 20th'
+  end                                       as report_timeliness
 
 from expected e
 left join submitted s

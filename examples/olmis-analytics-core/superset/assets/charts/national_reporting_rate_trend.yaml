@@ -1,0 +1,33 @@
+slice_name: "National Reporting Rate - Last 12 Months"
+viz_type: line
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000085"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+description: "Overall reporting rate over time, monthly resolution, last 12 months."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: line
+  granularity_sqla: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - reporting_rate
+  groupby: []
+  adhoc_filters: []
+  time_range: "Last 12 months"
+  row_limit: 10000
+  show_legend: false
+  show_markers: true
+  rich_tooltip: false
+  bottom_margin: auto
+  left_margin: auto
+  line_interpolation: linear
+  color_scheme: supersetColors
+  x_axis_label: ""
+  x_axis_format: "%b %Y"
+  y_axis_label: "Reporting Rate"
+  y_axis_format: ".1%"
+  comparison_type: values
+query_context: null

@@ -1,0 +1,46 @@
+slice_name: "Facility List"
+viz_type: table
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000071"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000070"
+description: "Directory of facilities with code, name, type, district, and region. Use the dashboard filters to scope by district, region, or type."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: table
+  query_mode: raw
+  all_columns:
+    - facility_code
+    - facility_name
+    - facility_type_name
+    - geographic_zone_name
+    - parent_zone_name
+  groupby: []
+  metrics: []
+  adhoc_filters: []
+  row_limit: 10000
+  order_by_cols:
+    - '["facility_name", true]'
+  server_pagination: true
+  server_page_length: 25
+  show_cell_bars: false
+  color_pn: false
+  table_timestamp_format: smart_date
+  page_length: 25
+  include_search: true
+  header_font_size: 0.6
+  cell_font_size: 0.6
+  column_config:
+    facility_code:
+      customColumnName: "Code"
+    facility_name:
+      customColumnName: "Name"
+    facility_type_name:
+      customColumnName: "Type"
+    geographic_zone_name:
+      customColumnName: "District"
+    parent_zone_name:
+      customColumnName: "Region"
+query_context: null

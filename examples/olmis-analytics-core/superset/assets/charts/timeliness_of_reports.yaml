@@ -1,0 +1,42 @@
+slice_name: "Timeliness of Reports"
+viz_type: pie
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000082"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+description: "Distribution of submitted reports by when in the calendar month they were submitted (Before 15th / Between 16th - 20th / After 20th). Excludes obligations that were never reported."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: pie
+  groupby:
+    - report_timeliness
+  metric:
+    expressionType: SIMPLE
+    column:
+      column_name: facility_id
+      type: String
+    aggregate: COUNT
+    label: "Reports"
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SIMPLE
+      subject: reporting_status
+      operator: "=="
+      comparator: "Reported"
+  time_range: "Last 12 months"
+  row_limit: 10000
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels: true
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  label_type: key_value_percent
+  number_format: SMART_NUMBER
+  date_format: smart_date
+  show_labels_threshold: 5
+  outerRadius: 70
+  innerRadius: 30
+query_context: null

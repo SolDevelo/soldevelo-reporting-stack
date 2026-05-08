@@ -1,0 +1,38 @@
+slice_name: "Reporting Rate by Program"
+viz_type: dist_bar
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000081"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000030"
+description: "Per-program reporting rate as a 100% stacked bar (Reported vs Did not report). Replaces the legacy row of six hardcoded per-program pies — auto-adapts to whichever programs the adopter has configured."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: dist_bar
+  groupby:
+    - program_name
+  columns:
+    - reporting_status
+  metrics:
+    - expressionType: SQL
+      sqlExpression: "COUNT(*)"
+      label: "Obligations"
+  adhoc_filters: []
+  contribution: true
+  bar_stacked: true
+  order_bars: true
+  order_desc: false
+  show_legend: true
+  show_bar_value: false
+  rich_tooltip: true
+  bottom_margin: auto
+  x_axis_label: Program
+  y_axis_label: Share
+  y_axis_format: ".1%"
+  color_scheme: supersetColors
+  legendType: scroll
+  legendOrientation: top
+  row_limit: 10000
+  time_range: "Last 12 months"
+query_context: null

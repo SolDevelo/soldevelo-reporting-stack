@@ -115,7 +115,7 @@ services:
   # the connector if missing. Polls every 30s (configurable).
   # ---------------------------------------------------------------------------
   connect-watchdog:
-    image: python:3.12-alpine
+    image: python:3.12.13-alpine
     hostname: connect-watchdog
     restart: unless-stopped
     networks:

@@ -34,4 +34,19 @@ params:
   include_search: true
   header_font_size: 0.6
   cell_font_size: 0.6
+  column_config:
+    facility_name:
+      customColumnName: "Facility"
+    product_code:
+      customColumnName: "Product Code"
+    product_name:
+      customColumnName: "Product"
+    period_name:
+      customColumnName: "Period"
+    stock_on_hand:
+      customColumnName: "Stock on Hand"
+    total_consumed_quantity:
+      customColumnName: "Consumption"
+    average_consumption:
+      customColumnName: "AMC"
 query_context: null

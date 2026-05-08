@@ -27,6 +27,15 @@ columns:
     filterable: false
     expression: null
     description: null
+  - column_name: requisition_id
+    verbose_name: Requisition ID
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: false
+    filterable: false
+    expression: null
+    description: null
   - column_name: facility_id
     verbose_name: Facility ID
     is_dttm: false
@@ -243,6 +252,15 @@ columns:
     filterable: true
     expression: null
     description: null
+  - column_name: total_cost
+    verbose_name: Total Cost
+    is_dttm: false
+    is_active: true
+    type: Float64
+    groupby: false
+    filterable: true
+    expression: null
+    description: "Total cost of the requisition line item (price_per_pack × packs_to_ship)"
 metrics:
   - metric_name: count
     verbose_name: "COUNT(*)"

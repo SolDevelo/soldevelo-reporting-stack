@@ -18,6 +18,7 @@ params:
       label: "Adjusted Consumption"
   groupby: []
   adhoc_filters: []
+  time_range: "Last 6 months"
   row_limit: 50000
   order_desc: true
   color_scheme: supersetColors

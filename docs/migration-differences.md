@@ -177,7 +177,8 @@ The migration plan explicitly classified Phase 4 as "core, no Malawi-specific" c
 
 - Added `total_consumed_quantity` and `adjusted_consumption` columns to the `mart_stock_status` Superset dataset YAML, plus two new metrics (`consumption` = `SUM(total_consumed_quantity)`, `adjusted_consumption_total` = `SUM(adjusted_consumption)`) so charts can reference them by name. The mart itself already had these as raw columns from the staging layer.
 - All filter / dashboard config conventions match Phase 1–3: `NATIVE_FILTER-` underscore IDs, `searchAllOptions: false`, `defaultDataMask.filterState: {value: null}`, `filter_bar_orientation: HORIZONTAL`.
-- No new dbt model needed — Phase 4 is the cheapest phase per the migration plan, exactly as predicted.
+- No new dbt model needed for the five charts on `mart_stock_status`. `mart_logistics_summary` was added because Superset 6 blocks subqueries in adhoc_filters.
+- Legacy `time_range` defaults preserved on three charts (Consumption Trend → Last 6 months, Consumption per District → Last 12 months, Most Consumed Products → Last month). All three are `today()`-relative — they resolve correctly against live data and approximately correctly against the time-shifted mw-distro test data (Dec 2024 → Dec 2025).
 
 ## Phase 5: Adjustments
 

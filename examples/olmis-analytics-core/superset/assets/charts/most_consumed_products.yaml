@@ -18,6 +18,7 @@ params:
       sqlExpression: "SUM(adjusted_consumption)"
       label: "Adjusted Consumption"
   adhoc_filters: []
+  time_range: "Last month"
   row_limit: 10000
   order_by_cols: []
   server_pagination: false

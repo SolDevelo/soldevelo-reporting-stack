@@ -19,6 +19,7 @@ params:
   groupby:
     - zone_name
   adhoc_filters: []
+  time_range: "Last 12 months"
   row_limit: 10000
   order_desc: true
   color_scheme: supersetColors

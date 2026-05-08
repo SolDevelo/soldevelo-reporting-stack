@@ -26,7 +26,7 @@ Manual checks:
 ```bash
 # Kafka broker
 docker compose --env-file .env -f compose/docker-compose.yml exec kafka \
-  kafka-broker-api-versions.sh --bootstrap-server localhost:9092
+  /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092
 
 # Kafka Connect REST API
 curl -s http://localhost:${CONNECT_PORT:-8083}/connectors

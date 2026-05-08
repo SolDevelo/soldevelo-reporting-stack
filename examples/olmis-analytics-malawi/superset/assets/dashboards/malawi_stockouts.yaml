@@ -17,7 +17,127 @@ metadata:
   label_colors: {}
   color_scheme_domain: []
   shared_label_colors: []
-  cross_filters_enabled: false
+  cross_filters_enabled: true
+  native_filter_configuration:
+    - id: NATIVE-FILTER-malawi-program
+      name: Health Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: malawi_program
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-program
+      name: Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: program_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: zone_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-period
+      name: Period
+      filterType: filter_select
+      targets:
+        - column:
+            name: period_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-facility
+      name: Facility
+      filterType: filter_select
+      targets:
+        - column:
+            name: facility_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
+    - id: NATIVE-FILTER-product
+      name: Product
+      filterType: filter_select
+      targets:
+        - column:
+            name: product_name
+          datasetUuid: "e1f2a3b4-c5d6-4e7f-8a9b-000000000020"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: true
+        inverseSelection: false
 position:
   DASHBOARD_VERSION_KEY: v2
   ROOT_ID:

@@ -81,6 +81,24 @@ columns:
     filterable: true
     expression: null
     description: null
+  - column_name: parent_zone_name
+    verbose_name: Region
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: program_name
+    verbose_name: Program
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
   - column_name: combined_stockout
     verbose_name: Stocked Out
     is_dttm: false

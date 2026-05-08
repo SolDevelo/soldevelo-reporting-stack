@@ -4,8 +4,8 @@
 # Image choices (long-term, do not change without discussion):
 #   Kafka:         soldevelo/kafka 3.7  (KRaft mode, no ZooKeeper)
 #   Kafka Connect: confluentinc/cp-kafka-connect 7.7.1 (Kafka 3.7.x compatible)
-#   Kafka UI:      provectuslabs/kafka-ui 0.7.2
-#   ClickHouse:    clickhouse/clickhouse-server 24.8-alpine
+#   Kafka UI:      kafbat/kafka-ui 1.5.0  (active fork; provectuslabs/kafka-ui is abandoned)
+#   ClickHouse:    clickhouse/clickhouse-server 25.8 LTS  (next LTS upgrade ~Aug 2026 to 26.8 — see docs/operations.md)
 #   Airflow:       apache/airflow 2.9.3 (LocalExecutor, PostgreSQL metadata)
 #   Superset:      apache/superset 6.0.0 (ClickHouse driver via clickhouse-connect)
 
@@ -138,7 +138,7 @@ services:
   # Kafka UI (Provectus)
   # ---------------------------------------------------------------------------
   kafka-ui:
-    image: provectuslabs/kafka-ui:v0.7.2
+    image: kafbat/kafka-ui:v1.5.0
     hostname: kafka-ui
     restart: unless-stopped
     networks:
@@ -167,7 +167,7 @@ services:
   # Kafka engine tables consume JSON CDC events directly from Kafka topics.
   # ---------------------------------------------------------------------------
   clickhouse:
-    image: clickhouse/clickhouse-server:24.8-alpine
+    image: clickhouse/clickhouse-server:25.8.23.13-alpine
     hostname: clickhouse
     restart: unless-stopped
     networks:

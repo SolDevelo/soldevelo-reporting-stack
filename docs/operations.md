@@ -123,3 +123,18 @@ For production deployments, monitor these signals:
 | Kafka consumer lag | ClickHouse Kafka Engine consumer group | Growing lag = ClickHouse falling behind |
 
 The Airflow `platform_refresh` DAG includes a freshness gate — if raw data is stale (older than `FRESHNESS_MAX_AGE_MINUTES`, default 120), it skips the dbt build to avoid serving stale curated data.
+
+## Planned version upgrades
+
+### ClickHouse 26.8 LTS — target window: ~September 2026
+
+ClickHouse 25.8 LTS (the version pinned in `compose/docker-compose.yml`) was released August 2025 and receives security/bug fixes for ~12 months. The next LTS line is expected to be **26.8** (ClickHouse cuts LTS releases at the `.3` and `.8` minor versions twice per year). Once 26.8 is published and has had ~1 month of patch releases, plan a coordinated upgrade.
+
+Upgrade checklist (when 26.8 ships):
+1. Verify the `clickhouse/clickhouse-server:26.8.x.y-alpine` tag is available on Docker Hub
+2. Read the 26.x release notes for breaking changes affecting Kafka engine DDL, JSONExtract functions, and `kafka_handle_error_mode = 'stream'` (these are the surfaces our pipeline depends on)
+3. Bump the image tag in `compose/docker-compose.yml` and the version note in its header
+4. `make reset && make up && make setup` against a non-production source, then run all `make verify-*` targets
+5. Update the version note at the top of `docs/operations.md` to point at the next LTS
+
+Until then, periodically pick up new patch releases on the `25.8.x.y-alpine` line for security fixes (the `.x.y` segment moves; the `25.8` major.minor stays).

@@ -1,0 +1,42 @@
+slice_name: "Mathematical Error Trends"
+viz_type: echarts_timeseries_line
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000056"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000050"
+description: "Trend in mathematical-error adjustments (positive + negative). Spikes indicate periods where requisitioners were resolving balance errors at scale, which can be a data-quality signal."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_line
+  x_axis: status_change_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SQL
+      sqlExpression: "SUM(adjustment_quantity)"
+      label: "Adjusted Quantity"
+  groupby:
+    - reason_name
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SQL
+      sqlExpression: "lower(reason_name) IN ('positive mathematical error', 'negative mathematical error')"
+      subject: reason_name
+  time_range: "Last 11 months"
+  row_limit: 10000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Status Change Date
+  y_axis_title: Adjusted Quantity
+  y_axis_format: ",.0f"
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  markerEnabled: true
+  markerSize: 6
+  zoomable: true
+query_context: null

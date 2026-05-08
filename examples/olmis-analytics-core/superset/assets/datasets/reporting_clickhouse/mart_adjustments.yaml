@@ -1,0 +1,189 @@
+table_name: mart_adjustments
+uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000050"
+version: "1.0.0"
+database_uuid: "b1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+schema: curated
+main_dttm_col: status_change_date
+description: "One row per stock_adjustment line, joined to facility/program/period/product dimensions and the latest non-INITIATED/SUBMITTED/SKIPPED status change. Replaces the legacy `adjustments` MV."
+default_endpoint: null
+offset: 0
+cache_timeout: null
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+is_managed_externally: false
+columns:
+  - column_name: adjustment_id
+    verbose_name: Adjustment ID
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: false
+    filterable: false
+    expression: null
+    description: null
+  - column_name: facility_name
+    verbose_name: Facility
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: zone_name
+    verbose_name: District
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: parent_zone_name
+    verbose_name: Region
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: program_name
+    verbose_name: Program
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_name
+    verbose_name: Period
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: period_end_date
+    verbose_name: Period End Date
+    is_dttm: true
+    is_active: true
+    type: Date
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: product_code
+    verbose_name: Product Code
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: product_name
+    verbose_name: Product
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: status_change_date
+    verbose_name: Status Change Date
+    is_dttm: true
+    is_active: true
+    type: DateTime
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: status_change_status
+    verbose_name: Status
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: reason_name
+    verbose_name: Reason
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: reason_type
+    verbose_name: Reason Type
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: reason_category
+    verbose_name: Reason Category
+    is_dttm: false
+    is_active: true
+    type: String
+    groupby: true
+    filterable: true
+    expression: null
+    description: null
+  - column_name: adjustment_quantity
+    verbose_name: Adjustment Quantity
+    is_dttm: false
+    is_active: true
+    type: Int32
+    groupby: false
+    filterable: true
+    expression: null
+    description: null
+  - column_name: signed_quantity
+    verbose_name: Signed Quantity
+    is_dttm: false
+    is_active: true
+    type: Int32
+    groupby: false
+    filterable: true
+    expression: null
+    description: "Quantity signed by reason_type: positive for CREDIT, negative for DEBIT. Sum gives net stock movement."
+metrics:
+  - metric_name: count
+    verbose_name: "COUNT(*)"
+    metric_type: count
+    expression: "COUNT(*)"
+    description: Total adjustments
+    d3format: ",.0f"
+    extra: null
+    warning_text: null
+  - metric_name: total_quantity
+    verbose_name: "Total Quantity"
+    metric_type: null
+    expression: "SUM(adjustment_quantity)"
+    description: Sum of unsigned adjustment quantities
+    d3format: ",.0f"
+    extra: null
+    warning_text: null
+  - metric_name: net_quantity
+    verbose_name: "Net Quantity (signed)"
+    metric_type: null
+    expression: "SUM(signed_quantity)"
+    description: Sum of signed adjustment quantities (CREDIT positive, DEBIT negative)
+    d3format: ",.0f"
+    extra: null
+    warning_text: null

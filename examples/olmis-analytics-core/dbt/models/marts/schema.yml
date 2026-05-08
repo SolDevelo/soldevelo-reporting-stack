@@ -120,6 +120,24 @@ models:
                 values:
                   - Did not report
 
+  - name: mart_adjustments
+    description: >
+      One row per stock_adjustment line, joined to its line item,
+      requisition, facility, program, period, product, the latest
+      non-INITIATED/SUBMITTED/SKIPPED status change, and the adjustment
+      reason. Replaces the legacy `adjustments` materialized view.
+    columns:
+      - name: adjustment_id
+        tests:
+          - not_null
+          - unique
+      - name: requisition_id
+        tests:
+          - not_null
+      - name: line_item_id
+        tests:
+          - not_null
+
   - name: mart_logistics_summary
     description: >
       Subset of mart_stock_status filtered to the top-5 products by total

@@ -240,3 +240,22 @@ models:
       - name: status
         tests:
           - not_null
+
+  - name: stg_stock_adjustments
+    description: One row per requisition stock adjustment line item.
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_stock_adjustment_reasons
+    description: >
+      One row per global adjustment reason (deduplicated from the per-requisition
+      copies in the source table). Used to look up reason name + type from a
+      stock_adjustments.reason_id.
+    columns:
+      - name: reason_id
+        tests:
+          - not_null
+          - unique

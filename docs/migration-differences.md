@@ -182,7 +182,38 @@ The migration plan explicitly classified Phase 4 as "core, no Malawi-specific" c
 
 ## Phase 5: Adjustments
 
-⚠️ Pending.
+### CDC pipeline changes
+
+Two new tables added to the source PostgreSQL publication and the Debezium allowlist:
+- `requisition.stock_adjustments`
+- `requisition.stock_adjustment_reasons`
+
+Required a clean reset (`make reset && make up && make setup`) because the existing connector offset prevented Debezium from re-snapshotting the new tables. With the offsets cleared, all 17 raw landing tables populate (previous 13 plus the two new ones plus a regenerated heartbeat / etc).
+
+### New dbt models
+
+- `stg_stock_adjustments` — current-state view, one row per adjustment (id, line_item_id, reason_id, quantity)
+- `stg_stock_adjustment_reasons` — current-state view, **deduplicated by global `reason_id`** because the source table holds one row per (requisition × allowed reason) and we only need one canonical (name, type) per reason
+- `mart_adjustments` — one row per adjustment, joined to facility/program/period/product dimensions, latest non-INITIATED/SUBMITTED/SKIPPED status_change, and the reason
+
+### Core dashboard — `OLMIS Adjustments` (slug: `olmis-adjustments`)
+
+| Legacy chart | Migrated chart | Status | Notes |
+|---|---|---|---|
+| Adjustments Filter (filter_box) | Native horizontal filter bar (Program · Region · District · Period · Facility · Reason) | 📝 Modernization | Same as Phases 1–4 |
+| Adjustment Summary (table) | `adjustment_summary.yaml` | ✅ Equivalent | groupby facility/period/reason, COUNT + SUM(quantity). Filter `time_range: Last month` matches legacy |
+| % of Adjustments By Reason (dist_bar) | `adjustments_by_reason.yaml` (pie) | 📝 Modernization | Legacy used 11 hardcoded `SUM(CASE WHEN reason = '<name>' THEN 1 ELSE 0 END)` metrics — one per known reason. Migrated chart groupby `reason_name` with a single COUNT metric. New reasons added in OpenLMIS will appear automatically; legacy chart would silently miss them. Switched viz to pie because percentage-by-category is more naturally shown that way; users can switch to bar in Superset if preferred |
+| Top Adjustment Reasons (table) | `top_adjustment_reasons.yaml` | ✅ Equivalent | groupby reason_name + reason_type, COUNT + SUM(quantity), sort desc |
+| Top Districts With Adjustments (table) | `top_districts_with_adjustments.yaml` | ✅ Equivalent | groupby zone_name + parent_zone_name, COUNT + SUM(quantity) |
+| Most Adjusted Reason (table) | `most_adjusted_reason.yaml` | ✅ Equivalent | groupby reason_name + program_name, SUM(quantity) |
+| Mathematical Error Trends (line) | `mathematical_error_trends.yaml` | ✅ Equivalent | x=status_change_date, groupby reason_name, filter `lower(reason_name) IN ('positive mathematical error', 'negative mathematical error')`. time_range "Last 11 months" matches legacy |
+
+### Two metric corrections (🔧 bug fix from legacy)
+
+1. **Legacy `adjustments` MV used `DISTINCT ON (li.requisition_line_item_id)`**, which silently dropped all but one adjustment per line item. So legacy "Top Adjustment Reasons" / "Most Adjusted Reason" undercounted: a line item with 3 adjustments showed up as 1. The migration keeps every adjustment row.
+2. **Legacy joined `stock_adjustment_reasons sar ON sar.id = al.reasonid`**. Modern OpenLMIS uses `sar.reasonid` (the global FK) as the join key, not `sar.id`. Verified against mw-distro: the legacy join only matches 6 of 14 adjustment rows, leaving 8 with NULL reason names. We join via `reason_id` (FK), matching all 14.
+
+Both corrections produce more accurate counts. Numbers will differ from legacy charts in any deployment where line items have multiple adjustments or where the schema changed since the MV was authored.
 
 ## Phase 6: Orders
 

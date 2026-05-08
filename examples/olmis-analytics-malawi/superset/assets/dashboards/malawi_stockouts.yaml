@@ -42,7 +42,8 @@ metadata:
       cascadeParentIds: []
       defaultDataMask:
         extraFormData: {}
-        filterState: {}
+        filterState:
+          value: null
         ownState: {}
     - id: NATIVE-FILTER-program
       name: Program
@@ -66,7 +67,8 @@ metadata:
       cascadeParentIds: []
       defaultDataMask:
         extraFormData: {}
-        filterState: {}
+        filterState:
+          value: null
         ownState: {}
     - id: NATIVE-FILTER-region
       name: Region
@@ -90,7 +92,8 @@ metadata:
       cascadeParentIds: []
       defaultDataMask:
         extraFormData: {}
-        filterState: {}
+        filterState:
+          value: null
         ownState: {}
     - id: NATIVE-FILTER-district
       name: District
@@ -114,7 +117,8 @@ metadata:
       cascadeParentIds: []
       defaultDataMask:
         extraFormData: {}
-        filterState: {}
+        filterState:
+          value: null
         ownState: {}
     - id: NATIVE-FILTER-period
       name: Period
@@ -138,7 +142,8 @@ metadata:
       cascadeParentIds: []
       defaultDataMask:
         extraFormData: {}
-        filterState: {}
+        filterState:
+          value: null
         ownState: {}
     - id: NATIVE-FILTER-facility
       name: Facility
@@ -162,7 +167,8 @@ metadata:
       cascadeParentIds: []
       defaultDataMask:
         extraFormData: {}
-        filterState: {}
+        filterState:
+          value: null
         ownState: {}
     - id: NATIVE-FILTER-product
       name: Product
@@ -186,7 +192,8 @@ metadata:
       cascadeParentIds: []
       defaultDataMask:
         extraFormData: {}
-        filterState: {}
+        filterState:
+          value: null
         ownState: {}
 position:
   DASHBOARD_VERSION_KEY: v2

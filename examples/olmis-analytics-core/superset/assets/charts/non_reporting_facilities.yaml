@@ -23,14 +23,14 @@ params:
       aggregate: COUNT
       label: "Missed Reports"
   adhoc_filters: []
-  row_limit: 50
+  row_limit: 10000
   order_by_cols: []
   server_pagination: false
   order_desc: true
   show_cell_bars: false
   color_pn: false
   table_timestamp_format: smart_date
-  page_length: 10
+  page_length: 0
   include_search: true
   header_font_size: 0.6
   cell_font_size: 0.6

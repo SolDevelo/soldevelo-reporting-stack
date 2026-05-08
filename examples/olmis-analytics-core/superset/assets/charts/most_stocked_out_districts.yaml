@@ -18,7 +18,7 @@ params:
       sqlExpression: "SUM(combined_stockout)"
       label: "Stocked Out Products"
   adhoc_filters: []
-  row_limit: 10
+  row_limit: 10000
   order_by_cols: []
   server_pagination: false
   order_desc: true

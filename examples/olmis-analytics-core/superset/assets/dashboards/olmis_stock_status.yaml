@@ -19,7 +19,7 @@ metadata:
   shared_label_colors: []
   cross_filters_enabled: true
   native_filter_configuration:
-    - id: NATIVE-FILTER-program
+    - id: NATIVE_FILTER-program
       name: Program
       filterType: filter_select
       targets:
@@ -44,7 +44,7 @@ metadata:
         filterState:
           value: null
         ownState: {}
-    - id: NATIVE-FILTER-region
+    - id: NATIVE_FILTER-region
       name: Region
       filterType: filter_select
       targets:
@@ -69,7 +69,7 @@ metadata:
         filterState:
           value: null
         ownState: {}
-    - id: NATIVE-FILTER-district
+    - id: NATIVE_FILTER-district
       name: District
       filterType: filter_select
       targets:
@@ -94,7 +94,7 @@ metadata:
         filterState:
           value: null
         ownState: {}
-    - id: NATIVE-FILTER-period
+    - id: NATIVE_FILTER-period
       name: Period
       filterType: filter_select
       targets:
@@ -119,7 +119,7 @@ metadata:
         filterState:
           value: null
         ownState: {}
-    - id: NATIVE-FILTER-facility
+    - id: NATIVE_FILTER-facility
       name: Facility
       filterType: filter_select
       targets:
@@ -144,7 +144,7 @@ metadata:
         filterState:
           value: null
         ownState: {}
-    - id: NATIVE-FILTER-product
+    - id: NATIVE_FILTER-product
       name: Product
       filterType: filter_select
       targets:

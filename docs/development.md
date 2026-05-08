@@ -169,10 +169,11 @@ Airflow runs with LocalExecutor (no Celery/Redis). Services:
 
 | Service | Purpose |
 |---|---|
-| `airflow-db` | PostgreSQL 16 metadata database |
-| `airflow-init` | One-shot: DB migrations + admin user creation |
-| `airflow-scheduler` | Executes DAG tasks (has Docker socket access) |
-| `airflow-webserver` | Web UI at `http://localhost:8080` |
+| `airflow-db` | PostgreSQL 17 metadata database |
+| `airflow-init` | One-shot: DB migrations + SimpleAuthManager passwords-file seeding |
+| `airflow-dag-processor` | Parses DAG files into the metadata DB (split out of the scheduler in Airflow 3) |
+| `airflow-scheduler` | Schedules and executes DAG tasks (has Docker socket access) |
+| `airflow-webserver` | Runs `airflow api-server` — UI + REST API at `http://localhost:8080`, auth at `POST /auth/token` (JWT) |
 
 The `platform_refresh` DAG runs on a schedule (default: `@hourly`):
 

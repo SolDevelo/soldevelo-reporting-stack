@@ -29,17 +29,25 @@ check() {
   fi
 }
 
+AIRFLOW_BASE="http://${AIRFLOW_HOST}:${AIRFLOW_PORT}"
+
 echo "Verify: Airflow orchestration"
 echo "-------------------------------"
 
 check "Airflow webserver health" \
-  "curl -sf http://${AIRFLOW_HOST}:${AIRFLOW_PORT}/health"
+  "curl -sf ${AIRFLOW_BASE}/api/v2/monitor/health"
 
 check "Airflow scheduler healthy" \
-  "curl -sf http://${AIRFLOW_HOST}:${AIRFLOW_PORT}/health | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['scheduler']['status']=='healthy'\""
+  "curl -sf ${AIRFLOW_BASE}/api/v2/monitor/health | python3 -c \"import sys,json; d=json.load(sys.stdin); assert d['scheduler']['status']=='healthy'\""
+
+# Airflow 3.x uses JWT (issued by the auth manager) instead of HTTP basic auth.
+TOKEN=$(curl -sf -X POST "${AIRFLOW_BASE}/auth/token" \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"${AIRFLOW_USER}\",\"password\":\"${AIRFLOW_PASS}\"}" \
+  2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])" 2>/dev/null || true)
 
 check "DAG 'platform_refresh' registered" \
-  "curl -sf -u '${AIRFLOW_USER}:${AIRFLOW_PASS}' http://${AIRFLOW_HOST}:${AIRFLOW_PORT}/api/v1/dags/platform_refresh"
+  "[ -n '${TOKEN}' ] && curl -sf -H 'Authorization: Bearer ${TOKEN}' ${AIRFLOW_BASE}/api/v2/dags/platform_refresh"
 
 echo "-------------------------------"
 echo "Results: ${PASS} passed, ${FAIL} failed"

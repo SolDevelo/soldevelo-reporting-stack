@@ -130,7 +130,7 @@ columns:
     verbose_name: Average Consumption
     is_dttm: false
     is_active: true
-    type: Int32
+    type: Int64
     groupby: false
     filterable: true
     expression: null
@@ -139,7 +139,7 @@ columns:
     verbose_name: Stock on Hand
     is_dttm: false
     is_active: true
-    type: Int32
+    type: Int64
     groupby: false
     filterable: true
     expression: null

@@ -23,7 +23,7 @@ params:
       aggregate: COUNT
       label: "Missed Reports"
   adhoc_filters: []
-  row_limit: 100000
+  row_limit: null
   order_by_cols: []
   server_pagination: true
   server_page_length: 25

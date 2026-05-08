@@ -1,0 +1,325 @@
+dashboard_title: "OLMIS Consumption"
+uuid: "d1e2f3a4-b5c6-4d7e-8f9a-000000000040"
+version: "1.0.0"
+description: "Consumption analytics: trend, year-over-year, per-district, top consumed products, and a logistics summary."
+slug: olmis-consumption
+css: ""
+published: true
+certified_by: null
+certification_details: null
+is_managed_externally: false
+metadata:
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  refresh_frequency: 0
+  default_filters: "{}"
+  color_scheme: supersetColors
+  label_colors: {}
+  color_scheme_domain: []
+  shared_label_colors: []
+  cross_filters_enabled: true
+  filter_bar_orientation: HORIZONTAL
+  native_filter_configuration:
+    - id: NATIVE_FILTER-program
+      name: Program
+      filterType: filter_select
+      targets:
+        - column:
+            name: program_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-region
+      name: Region
+      filterType: filter_select
+      targets:
+        - column:
+            name: parent_zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-district
+      name: District
+      filterType: filter_select
+      targets:
+        - column:
+            name: zone_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-period
+      name: Period
+      filterType: filter_select
+      targets:
+        - column:
+            name: period_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-facility
+      name: Facility
+      filterType: filter_select
+      targets:
+        - column:
+            name: facility_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+    - id: NATIVE_FILTER-product
+      name: Product
+      filterType: filter_select
+      targets:
+        - column:
+            name: product_name
+          datasetUuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+      scope:
+        rootPath:
+          - ROOT_ID
+        excluded: []
+      controlValues:
+        enableEmptyFilter: false
+        defaultToFirstItem: false
+        multiSelect: true
+        searchAllOptions: false
+        inverseSelection: false
+      type: NATIVE_FILTER
+      description: ""
+      cascadeParentIds: []
+      defaultDataMask:
+        extraFormData: {}
+        filterState:
+          value: null
+        ownState: {}
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+      - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+      - ROW-trend
+      - ROW-yoy
+      - ROW-district
+      - ROW-products
+      - ROW-logistics
+    parents:
+      - ROOT_ID
+  ROW-trend:
+    type: ROW
+    id: ROW-trend
+    children:
+      - CHART-trend
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-trend:
+    type: CHART
+    id: CHART-trend
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-trend
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Consumption Trend"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000041"
+  ROW-yoy:
+    type: ROW
+    id: ROW-yoy
+    children:
+      - CHART-current-year
+      - CHART-last-year
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-current-year:
+    type: CHART
+    id: CHART-current-year
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-yoy
+    meta:
+      chartId: 0
+      height: 50
+      width: 6
+      sliceName: "Consumption — Current 12 Months"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000043"
+  CHART-last-year:
+    type: CHART
+    id: CHART-last-year
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-yoy
+    meta:
+      chartId: 0
+      height: 50
+      width: 6
+      sliceName: "Consumption — Previous 12 Months"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000044"
+  ROW-district:
+    type: ROW
+    id: ROW-district
+    children:
+      - CHART-district
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-district:
+    type: CHART
+    id: CHART-district
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-district
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Consumption per District"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000042"
+  ROW-products:
+    type: ROW
+    id: ROW-products
+    children:
+      - CHART-products
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-products:
+    type: CHART
+    id: CHART-products
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-products
+    meta:
+      chartId: 0
+      height: 50
+      width: 12
+      sliceName: "Most Consumed Products"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000045"
+  ROW-logistics:
+    type: ROW
+    id: ROW-logistics
+    children:
+      - CHART-logistics
+    parents:
+      - ROOT_ID
+      - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-logistics:
+    type: CHART
+    id: CHART-logistics
+    children: []
+    parents:
+      - ROOT_ID
+      - GRID_ID
+      - ROW-logistics
+    meta:
+      chartId: 0
+      height: 60
+      width: 12
+      sliceName: "Logistics Summary Report"
+      uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000046"

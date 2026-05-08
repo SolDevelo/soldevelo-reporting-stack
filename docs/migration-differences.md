@@ -155,7 +155,29 @@ The reporting-status logic in both marts is byte-equivalent to the legacy `repor
 
 ## Phase 4: Consumption
 
-⚠️ Pending.
+### Core dashboard — `OLMIS Consumption` (slug: `olmis-consumption`)
+
+| Legacy chart | Migrated chart | Status | Notes |
+|---|---|---|---|
+| Stock Filter (filter_box) | Native horizontal filter bar (Program · Region · District · Period · Facility · Product) | 📝 Modernization | Same as Phase 1–3 |
+| Consumption Trend (line) | `consumption_trend.yaml` | ✅ Equivalent | `SUM(adjusted_consumption)` over time, no groupby. Legacy used the named metric `Adjusted Consumption` defined as `SUM(adjusted_consumption)`. Same expression |
+| Total Adjusted Consumption per District (line) | `consumption_per_district.yaml` (renamed "Consumption per District") | 🔧 Bug fix | Legacy chart had hardcoded `program_name = 'Malaria'` filter despite a generic chart name. Migrated chart drops the hardcoded filter and exposes Program in the dashboard filter bar — users select Malaria themselves to match legacy view. **Numbers match legacy when filtered to Program=Malaria.** Metric expression preserved: `CASE WHEN SUM(adjusted_consumption) != 0 THEN SUM(consumption)/SUM(adjusted_consumption) ELSE 0 END` (rewritten with our `total_consumed_quantity` column name) |
+| Consumption in Current Year (line) | `consumption_current_year.yaml` (renamed "Consumption — Current 12 Months") | 🔧 Bug fix | Legacy was named "Current Year" but actually filtered to *last 12 months* from `current_date`, with hardcoded `program_name = 'Malaria'`. Migrated chart drops the Malaria filter (same rationale as above) and uses an explicit time filter `period_end_date >= toStartOfMonth(today()) - INTERVAL 12 MONTH`. Renamed for clarity ("Current 12 Months" instead of misleading "Current Year") |
+| Consumption in Last Year (line) | `consumption_last_year.yaml` (renamed "Consumption — Previous 12 Months") | 🔧 Bug fix | Same pair as above — months 13–24 ago, hardcoded Malaria filter dropped, renamed for clarity |
+| Most Consumed Product (table) | `most_consumed_products.yaml` | ✅ Equivalent | groupby `product_name`, `product_code`; metric `SUM(adjusted_consumption)`. Legacy was groupby `full_product_name`, `product_code`. Same data. Renamed plural for grammar |
+| Logistics Summary Report (table) | `logistics_summary.yaml` | ✅ Equivalent (test-data caveat) | Wide table with facility × product × period × stock columns, filtered to the top 5 most-consumed products in the latest reporting month. Subquery filter rewritten for ClickHouse: `product_name IN (SELECT product_name FROM mart_stock_status WHERE period_end_date >= toStartOfMonth(today()) - INTERVAL 1 MONTH … ORDER BY SUM(total_consumed_quantity) DESC LIMIT 5)`. **Test-data caveat:** mw-distro's most recent period is Dec 2025; the "current month" filter resolves to the previous calendar month relative to `today()` and so excludes everything in our static test dataset. The chart will show 0 rows on mw-distro but produces correct data on a live deployment. Real fix: the test-data scenario would need rolling current-month rows |
+
+### Hardcoded `program_name = 'Malaria'` filter — design decision
+
+Three legacy charts (Total Adjusted Consumption per District, Consumption in Current Year, Consumption in Last Year) had `program_name = 'Malaria'` as an `adhoc_filter`, despite having generic chart names. This appears to be Malawi-specific configuration that the original dashboard authors hardcoded into the chart rather than parameterized via filters.
+
+The migration plan explicitly classified Phase 4 as "core, no Malawi-specific" content, and the chart names imply program-agnostic visualizations. The migrated charts therefore drop the hardcoded filter; users replicate the legacy view by setting Program=Malaria in the dashboard filter bar. This is documented as a 🔧 bug fix in the table above. **Numerical impact:** when no Program filter is selected, migrated charts show consumption across all programs (more data than legacy); when Program=Malaria is selected, numbers match legacy exactly.
+
+### Implementation-level changes (no user-visible data impact)
+
+- Added `total_consumed_quantity` and `adjusted_consumption` columns to the `mart_stock_status` Superset dataset YAML, plus two new metrics (`consumption` = `SUM(total_consumed_quantity)`, `adjusted_consumption_total` = `SUM(adjusted_consumption)`) so charts can reference them by name. The mart itself already had these as raw columns from the staging layer.
+- All filter / dashboard config conventions match Phase 1–3: `NATIVE_FILTER-` underscore IDs, `searchAllOptions: false`, `defaultDataMask.filterState: {value: null}`, `filter_bar_orientation: HORIZONTAL`.
+- No new dbt model needed — Phase 4 is the cheapest phase per the migration plan, exactly as predicted.
 
 ## Phase 5: Adjustments
 

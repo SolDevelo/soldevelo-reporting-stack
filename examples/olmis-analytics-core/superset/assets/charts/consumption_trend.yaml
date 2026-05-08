@@ -1,0 +1,34 @@
+slice_name: "Consumption Trend"
+viz_type: echarts_timeseries_line
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000041"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+description: "Total adjusted consumption over time across all reporting facilities. Filter by Program/District/etc to scope."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_line
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SQL
+      sqlExpression: "SUM(adjusted_consumption)"
+      label: "Adjusted Consumption"
+  groupby: []
+  adhoc_filters: []
+  row_limit: 50000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: false
+  x_axis_title: Period
+  y_axis_title: Adjusted Consumption
+  y_axis_format: ",.0f"
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  markerEnabled: true
+  markerSize: 6
+  zoomable: true
+query_context: null

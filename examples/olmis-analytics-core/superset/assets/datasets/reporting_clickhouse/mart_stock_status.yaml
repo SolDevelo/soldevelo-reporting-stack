@@ -171,6 +171,24 @@ columns:
     filterable: true
     expression: null
     description: null
+  - column_name: total_consumed_quantity
+    verbose_name: Total Consumed Quantity
+    is_dttm: false
+    is_active: true
+    type: Int64
+    groupby: false
+    filterable: true
+    expression: null
+    description: Quantity consumed in the period (raw line-item value).
+  - column_name: adjusted_consumption
+    verbose_name: Adjusted Consumption
+    is_dttm: false
+    is_active: true
+    type: Int64
+    groupby: false
+    filterable: true
+    expression: null
+    description: Adjusted-consumption value from the requisition line item.
   - column_name: average_consumption
     verbose_name: Average Consumption
     is_dttm: false
@@ -229,5 +247,21 @@ metrics:
     expression: "AVG(total_stockout_days)"
     description: Average number of stockout days per line item
     d3format: ".1f"
+    extra: null
+    warning_text: null
+  - metric_name: consumption
+    verbose_name: "Consumption"
+    metric_type: null
+    expression: "SUM(total_consumed_quantity)"
+    description: Sum of consumed quantities (matches legacy 'Consumption' aggregation)
+    d3format: ",.0f"
+    extra: null
+    warning_text: null
+  - metric_name: adjusted_consumption_total
+    verbose_name: "Adjusted Consumption"
+    metric_type: null
+    expression: "SUM(adjusted_consumption)"
+    description: Sum of adjusted consumption values (matches legacy 'Adjusted Consumption' metric)
+    d3format: ",.0f"
     extra: null
     warning_text: null

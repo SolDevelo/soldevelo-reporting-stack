@@ -1,0 +1,41 @@
+slice_name: "Consumption — Current 12 Months"
+viz_type: echarts_timeseries_line
+uuid: "c1d2e3f4-a5b6-4c7d-8e9f-000000000043"
+version: "1.0.0"
+dataset_uuid: "a1b2c3d4-e5f6-4a7b-8c9d-000000000010"
+description: "Consumption per district over the last 12 months. Pair with the 'Previous 12 Months' chart to compare year-over-year."
+certified_by: null
+certification_details: null
+is_managed_externally: false
+cache_timeout: null
+params:
+  viz_type: echarts_timeseries_line
+  x_axis: period_end_date
+  time_grain_sqla: P1M
+  metrics:
+    - expressionType: SQL
+      sqlExpression: "SUM(total_consumed_quantity)"
+      label: "Consumption"
+  groupby:
+    - zone_name
+  adhoc_filters:
+    - clause: WHERE
+      expressionType: SQL
+      sqlExpression: "period_end_date >= toStartOfMonth(today()) - INTERVAL 12 MONTH AND period_end_date < toStartOfMonth(today())"
+      subject: period_end_date
+  row_limit: 50000
+  order_desc: true
+  color_scheme: supersetColors
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  x_axis_title: Period
+  y_axis_title: Consumption
+  y_axis_format: ",.0f"
+  rich_tooltip: true
+  tooltipTimeFormat: "%b %Y"
+  show_value: false
+  markerEnabled: true
+  markerSize: 6
+  zoomable: true
+query_context: null

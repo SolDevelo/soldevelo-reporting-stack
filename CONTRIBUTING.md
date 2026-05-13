@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the SolDevelo Reporting Stack.
 
 1. Fork the repository and create a feature branch from `main`.
 2. Make your changes in small, focused commits.
-3. Ensure all linting and verification targets pass: `make lint verify`.
+3. Bring up the stack against your test source DB and run the relevant `make verify-*` targets (`verify-services`, `verify-cdc`, `verify-ingestion`, `verify-dbt`, `verify-airflow`, `verify-superset`, and `verify-packages` if you changed package code). For data-correctness changes, `make reconcile` cross-checks curated marts against source PG.
 4. Open a pull request against `main` with a clear description of the change.
 
 ## Code standards

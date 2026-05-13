@@ -85,17 +85,22 @@ make verify-ingestion    # raw tables have rows
 make dbt-test            # tests pass
 ```
 
-Spot-check a row count between source and ClickHouse:
+For end-to-end correctness, `make recover-slot` already runs `make reconcile` as the final step (cross-system row count + PK-checksum comparison for every mart tagged `reconcile`). If you want to run it standalone:
 
 ```bash
-docker exec mw-distro-db-1 psql -U postgres -d open_lmis -tAc \
-  "SELECT 'facilities', count(*) FROM referencedata.facilities"
-make logs SVC=clickhouse  # or:
-docker exec soldevelo-reporting-stack-clickhouse-1 clickhouse-client --query \
-  "SELECT count() FROM curated.dim_facility"
+make reconcile
 ```
 
-Counts should match (allow for soft-deletes that the mart filters).
+Spot-check a single table manually:
+
+```bash
+docker compose --env-file .env -f compose/docker-compose.yml exec clickhouse \
+  clickhouse-client --query "
+SELECT 'source', count() FROM postgresql('${SOURCE_PG_HOST}:${SOURCE_PG_PORT}', '${SOURCE_PG_DB}',
+  'facilities', '${SOURCE_PG_USER}', '${SOURCE_PG_PASSWORD}', 'referencedata')
+UNION ALL
+SELECT 'target', count() FROM curated.mart_facility_directory"
+```
 
 ## Troubleshooting
 

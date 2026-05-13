@@ -44,7 +44,7 @@ bootstrap-import: ## Import a bootstrap export into ClickHouse raw. INPUT_DIR de
 reconcile: ## Run cross-system reconciliation tests (PG source vs ClickHouse curated marts).
 	@bash scripts/dbt/run.sh test --select tag:reconcile
 
-verify-services: ## Verify platform services are healthy (Kafka, Connect, Apicurio, Kafka UI, ClickHouse)
+verify-services: ## Verify platform services are healthy (Kafka, Connect, Kafka UI, ClickHouse)
 	@bash scripts/verify/services.sh
 
 verify-cdc: ## Verify Debezium CDC connector is running and topics exist

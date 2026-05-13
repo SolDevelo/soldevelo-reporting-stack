@@ -1,6 +1,6 @@
 # olmis-analytics-malawi
 
-Reference **analytics-extension** package for OpenLMIS Malawi. This is a permanent example that ships with the reporting-stack platform repository.
+Reference **analytics-extension** package for OpenLMIS Malawi. This ships with the reporting-stack platform repository as a permanent example of what a country-specific extension looks like in practice.
 
 Extensions are additive only — they add new dbt marts and Superset dashboards but must not modify core models/dashboards or change ingestion contracts.
 
@@ -8,45 +8,76 @@ Extensions are additive only — they add new dbt marts and Superset dashboards 
 
 ```
 olmis-analytics-malawi/
-  manifest.yaml                                       # Package metadata (type: extension)
+  manifest.yaml                          # Package metadata (type: extension)
+
   dbt/
-    dbt_project.yml                                   # dbt package config
+    dbt_project.yml
+    seeds/
+      malawi_program_products.csv        # Static reference list: programs × products
+                                         # marked as essential in Malawi
     models/
       marts/
-        mart_malawi_requisition_by_region.sql         # Regional requisition summary
-        schema.yml                                    # Tests for Malawi marts
+        mart_malawi_requisition_by_region.sql
+        mart_malawi_stock_status.sql
+        schema.yml
+
   superset/
     assets/
-      metadata.yaml                                   # Bundle metadata
+      metadata.yaml
+      databases/reporting_clickhouse.yaml
       datasets/reporting_clickhouse/
-        mart_malawi_requisition_by_region.yaml        # Dataset on the Malawi mart
-      charts/malawi_requisitions_by_region.yaml       # Bar chart: requisitions by region
-      dashboards/malawi_regional_overview.yaml        # Malawi dashboard
+        mart_malawi_requisition_by_region.yaml
+        mart_malawi_stock_status.yaml
+      charts/                            # 10 charts covering stockouts, stock levels,
+                                         # requisitions by region, programmatic snapshots
+        malawi_district_stockout_treemap.yaml
+        malawi_product_stockout_12mo.yaml
+        malawi_program_inventory_snapshot.yaml
+        malawi_program_stockout_trend.yaml
+        malawi_programmatic_stockout_pivot.yaml
+        malawi_requisitions_by_region.yaml
+        malawi_stock_levels_by_program.yaml
+        malawi_stockout_by_district.yaml
+        malawi_stockout_by_product.yaml
+        malawi_stockout_by_program.yaml
+      dashboards/
+        malawi_stockouts.yaml            # Stockout focus across products/districts/programs
+        malawi_stock_levels.yaml         # Stock-on-hand by program
+        malawi_regional_overview.yaml    # Requisition counts by region/status
+        malawi_summary.yaml              # Master Malawi dashboard: treemap + pivot
+                                         # + 12-month trends
 ```
 
-Note: extension packages do **not** include `connect/` or `databases/` — ingestion configuration and database connections are owned by the core package.
+Note: extension packages do **not** include `connect/` or top-level `databases/` — ingestion configuration is owned by the core package. The `superset/assets/databases/reporting_clickhouse.yaml` here only re-declares the database for asset-import purposes; it must match the core package's UUID.
 
-## dbt model
+## dbt models
 
-`mart_malawi_requisition_by_region` aggregates the core package's `mart_requisition_summary` and `mart_facility_directory` by geographic region:
+### Seed: `malawi_program_products`
 
-| Column | Description |
+Static CSV listing the program × product pairs that are considered essential for Malawi reporting. Used by `mart_malawi_stock_status` to filter down to the country's vital-medicines basket. To customise for a different country, replace the rows in this CSV.
+
+### Mart: `mart_malawi_requisition_by_region`
+
+Aggregates the core `mart_requisition_summary` by geographic region and program × status. One row per (region, program, status) tuple with counts of total and emergency requisitions. This is the data behind the "Requisitions by Region" charts.
+
+### Mart: `mart_malawi_stock_status`
+
+Computes stock status (STOCKOUT, LOW, ADEQUATE, OVERSTOCK) per (facility, program, product, period) using the essential-products seed for filtering. Backs every stockout/stock-level dashboard in the extension.
+
+## Superset dashboards
+
+| Dashboard | What it shows |
 |---|---|
-| `region` | Geographic region (parent zone, or zone if no parent) |
-| `program_name` | Program name |
-| `status` | Requisition workflow status |
-| `requisition_count` | Number of requisitions |
-| `emergency_count` | Number of emergency requisitions |
+| Malawi Stockouts | Stockout rate by product / district / program; 12-month trend; programmatic pivot |
+| Malawi Stock Levels | Stock-on-hand distribution by program × facility |
+| Malawi Regional Overview | Requisition activity heatmap by region and status |
+| Malawi Summary | Master dashboard combining the treemap, programmatic pivot, and 12-month stockout trend in one view |
 
-This demonstrates the extension pattern: reading from core marts without modifying them, adding a new aggregated view.
-
-## Superset dashboard
-
-The **Malawi Regional Overview** dashboard contains a bar chart showing requisition counts per region, broken down by status.
+These dashboards demonstrate three extension patterns: aggregating core marts (regional overview), introducing country-specific reference data via a seed (stock status), and composing multiple chart types into a master view (summary). When migrating dashboards from a country's legacy stack, see `docs/migration-differences.md` for the conventions used.
 
 ## Usage
 
-Set extension path in the platform's `.env`:
+Set the extension path in the platform's `.env`:
 
 ```env
 ANALYTICS_CORE_PATH=examples/olmis-analytics-core
@@ -55,14 +86,14 @@ ANALYTICS_EXTENSIONS_PATHS=examples/olmis-analytics-malawi
 
 Then run `make verify-packages` to validate, build, import, and verify.
 
-## Customizing for your country
+## Customising for your country
 
 To create an extension for a different country:
 
-1. Copy this directory as a starting point
-2. Replace the dbt mart with your country-specific aggregation
-3. Update tests in `schema.yml`
-4. Create Superset assets: author in the UI, export, commit to `superset/assets/`
-5. Run `make package-validate` to ensure no collisions with core
+1. Copy this directory as a starting point — rename `manifest.yaml.name`, the dbt project name, and the asset UUIDs (UUIDs must be unique across packages).
+2. Replace `seeds/malawi_program_products.csv` with your country's reference data, or remove the seed entirely if you don't need country-specific filtering.
+3. Adjust the dbt marts to your country's reporting needs. Read from core marts (`{{ ref('mart_requisition_summary') }}`, etc.) rather than directly from the raw layer.
+4. Replace the Superset charts and dashboards: author in the UI against your country's data, export with the import script, commit the YAML.
+5. Run `make package-validate` to ensure no UUID collisions with core.
 
 For detailed guidance, see [docs/usage-guide.md](../../docs/usage-guide.md).

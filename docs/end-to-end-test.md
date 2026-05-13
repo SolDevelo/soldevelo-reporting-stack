@@ -142,10 +142,19 @@ PostgreSQL (OLMIS facility rename)
 docker compose exec -T db psql -U postgres -d open_lmis \
   -c "SELECT * FROM pg_publication_tables WHERE pubname = 'dbz_publication';"
 ```
-If empty, the tables were lost (e.g., DB container was recreated). Re-add them:
+If empty, the tables were lost (e.g., DB container was recreated). The right fix is to re-run the source DB init SQL (`reporting-stack/init-db.sql` in the mw-distro / ref-distro overlay, or the equivalent for your deployment) — it's idempotent and restores the full publication including the `public.debezium_signal` table that `make snapshot-tables` needs.
+
+If you must add the data tables back manually:
 ```bash
 docker compose exec -T db psql -U postgres -d open_lmis \
-  -c "ALTER PUBLICATION dbz_publication ADD TABLE referencedata.facilities, referencedata.programs, referencedata.geographic_zones, referencedata.orderables, referencedata.processing_periods, referencedata.processing_schedules, referencedata.facility_types, referencedata.supported_programs, referencedata.requisition_group_members, referencedata.requisition_group_program_schedules, requisition.requisitions, requisition.requisition_line_items, requisition.status_changes;"
+  -c "ALTER PUBLICATION dbz_publication ADD TABLE
+        public.debezium_signal,
+        referencedata.facilities, referencedata.programs, referencedata.geographic_zones,
+        referencedata.orderables, referencedata.processing_periods, referencedata.processing_schedules,
+        referencedata.facility_types, referencedata.supported_programs,
+        referencedata.requisition_group_members, referencedata.requisition_group_program_schedules,
+        requisition.requisitions, requisition.requisition_line_items, requisition.status_changes,
+        requisition.stock_adjustments, requisition.stock_adjustment_reasons;"
 ```
 Then restart the connector task: `curl -X POST http://localhost:8083/connectors/openlmis-postgres-cdc/tasks/0/restart`
 

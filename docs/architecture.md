@@ -73,15 +73,29 @@ See `examples/olmis-analytics-core/` for a reference core package and `examples/
 
 ```
 Adopter PostgreSQL (external)
-  └─▶ Debezium CDC (Kafka Connect plugin)          ─┐
-        └─▶ Kafka (KRaft, no ZooKeeper)              │ real-time (seconds)
-              └─▶ ClickHouse                         ─┘
+  │
+  ├─▶ Debezium CDC (Kafka Connect plugin)          ─┐
+  │     └─▶ Kafka (KRaft, no ZooKeeper)              │ real-time (seconds)
+  │           └─▶ ClickHouse raw landing            ─┘
+  │
+  └─▶ scripts/bootstrap/export.sh (COPY → NDJSON)  ─┐
+        └─▶ scripts/bootstrap/import.sh             │ on-demand (operator-triggered)
+              └─▶ ClickHouse raw landing           ─┘   for initial-load + targeted backfill
+
+                    ClickHouse
                     ├─▶ raw landing (append-only, for debug/replay/backfill)
+                    │     ↑
+                    │     │  control plane: public.debezium_signal (operator inserts
+                    │     │  signal rows → Debezium runs incremental snapshots without
+                    │     │  resetting offsets; used by make snapshot-tables)
+                    │     │
                     └─▶ curated marts (BI contract — dashboards query only these)
                           ├─▶ dbt Core transformations  ── scheduled (default: hourly)
                           │     └─▶ Airflow orchestration
                           └─▶ Superset / Power BI
 ```
+
+The bootstrap path emits synthetic `op='r'` events with `source.snapshot='bootstrap'` so the same dbt staging logic deduplicates bootstrap and CDC rows together (newest `ts_ms` wins). See [runbook-initial-load.md](runbook-initial-load.md) and [runbook-backfill.md](runbook-backfill.md) for when to use this path.
 
 ## ClickHouse raw landing pattern
 

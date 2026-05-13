@@ -19,6 +19,7 @@ make reset       # stop + wipe all volumes
 # Setup (run after make up)
 make setup       # full pipeline: connector + ClickHouse + dbt + Superset + verify
 make recover     # restore broken pipeline: restart failed tasks, fix consumers
+make recover-slot # recover from invalidated replication slot (drops slot, re-snapshots) — see docs/runbook-slot-recovery.md
 
 # Observe
 make ps          # running services
@@ -26,10 +27,15 @@ make logs        # tail all logs (SVC=kafka to filter)
 make build       # rebuild Docker images
 
 # Connector management
-make register-connector    # create/update CDC connector
+make register-connector    # create/update CDC connector (publication preflight runs first)
 make connector-status      # show connector + task status
 make delete-connector      # remove connector
-make connector-refresh     # reset offsets + re-snapshot (use after adding tables)
+make connector-refresh     # auto-detect new tables → incremental snapshot (MODE=reset for full re-snapshot fallback)
+make snapshot-tables TABLES=schema.t1,schema.t2  # incremental snapshot via Debezium signal channel — see docs/runbook-add-tables.md
+
+# Bootstrap (direct PG → ClickHouse — see docs/runbook-initial-load.md / docs/runbook-backfill.md)
+make bootstrap-export  # COPY rows from source PG to .bootstrap/export-<ts>/
+make bootstrap-import  # load latest export into raw.events_<topic>
 
 # Verification (sequential)
 make verify-services    # Kafka, Connect, Kafka UI, ClickHouse health
@@ -39,6 +45,7 @@ make verify-dbt        # dbt build succeeds, curated marts have data
 make verify-airflow    # Airflow healthy, platform_refresh DAG registered
 make verify-superset   # Superset healthy, dashboard exists
 make verify-packages   # full package pipeline: validate + build + import + dashboards
+make reconcile         # cross-system: PG source row counts + PK checksums vs curated marts
 
 # ClickHouse
 make clickhouse-init   # create/update raw landing tables (idempotent)
@@ -135,8 +142,9 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 - `docs/development.md` — developer workflow, step-by-step verification, debugging
 - `docs/source-db-setup.md` — source database configuration, WAL safety, network setup
 - `docs/usage-guide.md` — practical how-tos: add tables, dbt models, Superset charts, author packages
-- `docs/implementation-plan.md` — implementation task breakdown (Tasks 3–10)
+- `docs/operations.md` — operational runbook (normal ops, failure recovery, monitoring)
+- `docs/runbook-add-tables.md`, `docs/runbook-slot-recovery.md`, `docs/runbook-initial-load.md`, `docs/runbook-backfill.md` — task-specific runbooks
 
 ## Implementation Status
 
-Tasks 0–8.5 and version upgrades 8.1–8.4 (base platform + Debezium CDC + folder restructure + ClickHouse raw landing + dbt transformations + Airflow orchestration + Superset + documentation + package system + extension example + pipeline stability + latest-stable pins) plus the full dashboard migration from mw-distro are complete. Task 9 (bootstrap, backfill, slot-invalidation recovery) is now in MVP scope and is the active task; Task 10 (monitoring and alerting) remains post-MVP. The full implementation plan is documented in `docs/implementation-plan.md`.
+The platform is MVP-complete: base infrastructure (Kafka + Connect + ClickHouse + dbt + Airflow + Superset), package system with the OLMIS core + Malawi extension, pipeline stability hardening, latest-stable version pins, the full dashboard migration from mw-distro, and the bootstrap/backfill/slot-recovery + reconciliation workstream. Monitoring and alerting (Prometheus/Grafana wiring, SLA-driven alert routes) is the remaining post-MVP item — see `docs/operations.md` for the manual checks operators run today.

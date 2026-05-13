@@ -8,11 +8,13 @@ For architecture principles and design rationale, see [architecture.md](architec
 
 This walks through adding a new PostgreSQL table to the full pipeline: CDC ingestion → ClickHouse raw landing → dbt staging → dbt mart → Superset dashboard.
 
+> **Detailed runbook**: [runbook-add-tables.md](runbook-add-tables.md) has the canonical procedure including the publication preflight, fallback paths, and troubleshooting. The guide here summarises the developer-facing model + Superset steps and assumes you've used the runbook for the ingestion side.
+
 **Example**: adding the `referencedata.orderable_display_categories` table.
 
 ### 1. Add the table to the PostgreSQL publication
 
-On the source database, add the table to the CDC publication:
+On the source database, add the table to the CDC publication, and persist the change in your init SQL so the next fresh init doesn't drift:
 
 ```sql
 ALTER PUBLICATION dbz_publication ADD TABLE referencedata.orderable_display_categories;
@@ -28,17 +30,17 @@ In `.env`, append the table to `SOURCE_PG_TABLE_ALLOWLIST`:
 SOURCE_PG_TABLE_ALLOWLIST=referencedata.facilities,...,referencedata.orderable_display_categories
 ```
 
-### 3. Refresh the CDC connector (with snapshot)
+### 3. Refresh the CDC connector (incremental snapshot of just the new table)
 
 ```bash
 make connector-refresh
 ```
 
-**Important**: a simple `make register-connector` only updates the connector config — it does **not** load existing data from newly added tables. This is because Debezium's stored offset tells it the initial snapshot already completed. `make connector-refresh` resets the offset and triggers a fresh snapshot of all tables.
+The default `auto` mode diffs the connector's current `table.include.list` against `.env`, re-registers (the publication preflight from `register-connector` runs first and fails fast on drift), reinitialises ClickHouse raw landing for the new topic, and triggers a Debezium **incremental snapshot** via the signal channel for just the new tables. Existing tables keep their offsets — no disruption to ongoing change capture.
 
-This command: stops the connector → resets stored offsets → deletes and re-registers → re-initializes ClickHouse raw landing → waits for the snapshot → verifies ingestion.
+If the signal table is unavailable (very old deployments, or you've intentionally bypassed init), use `MODE=reset make connector-refresh` as a fallback — that drops all stored offsets and re-snapshots every captured table.
 
-Existing data in ClickHouse raw tables is not lost (append-only). The snapshot produces duplicate rows for previously captured tables, but dbt staging views deduplicate via `row_number()`.
+Existing data in ClickHouse raw tables is not lost (append-only). dbt staging views deduplicate via `row_number()`.
 
 ### 4. Verify data arrives
 

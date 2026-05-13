@@ -31,9 +31,29 @@ See `reporting-stack/README.md` in `openlmis-ref-distro` for details.
 For databases not managed by the ref-distro overlay, run the following SQL:
 
 ```sql
--- 1. Create a publication for the tables the reporting stack will capture.
---    Adjust the table list to match your deployment.
+-- 1. Heartbeat table — Debezium writes to this periodically to advance the
+--    replication slot, preventing WAL bloat during idle periods.
+CREATE TABLE IF NOT EXISTS public.reporting_heartbeat (
+  id  INT PRIMARY KEY DEFAULT 1,
+  ts  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO public.reporting_heartbeat (id, ts) VALUES (1, NOW())
+  ON CONFLICT (id) DO NOTHING;
+
+-- 2. Signal table — Debezium reads rows from here to trigger ad-hoc actions
+--    (used by `make snapshot-tables` for incremental snapshot of newly added
+--    tables). Schema is fixed by the Debezium source signal channel contract.
+CREATE TABLE IF NOT EXISTS public.debezium_signal (
+  id   VARCHAR(42)   PRIMARY KEY,
+  type VARCHAR(32)   NOT NULL,
+  data VARCHAR(2048)
+);
+
+-- 3. Publication — the signal table MUST be included (the connector won't
+--    receive signal events otherwise). Adjust the data-table list to match
+--    your deployment.
 CREATE PUBLICATION dbz_publication FOR TABLE
+  public.debezium_signal,
   referencedata.facilities,
   referencedata.programs,
   referencedata.geographic_zones,
@@ -46,25 +66,21 @@ CREATE PUBLICATION dbz_publication FOR TABLE
   referencedata.requisition_group_program_schedules,
   requisition.requisitions,
   requisition.requisition_line_items,
-  requisition.status_changes;
+  requisition.status_changes,
+  requisition.stock_adjustments,
+  requisition.stock_adjustment_reasons;
 
--- 2. Create a heartbeat table to prevent WAL bloat during idle periods.
-CREATE TABLE IF NOT EXISTS public.reporting_heartbeat (
-  id  INT PRIMARY KEY DEFAULT 1,
-  ts  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-INSERT INTO public.reporting_heartbeat (id, ts) VALUES (1, NOW())
-  ON CONFLICT (id) DO NOTHING;
-
--- 3. Ensure the database user has replication privileges.
+-- 4. Ensure the database user has replication privileges.
 ALTER ROLE postgres WITH REPLICATION;
 ```
 
 ## Expanding the table allowlist
 
-1. Add tables to the publication: `ALTER PUBLICATION dbz_publication ADD TABLE schema.tablename;`
-2. Update `SOURCE_PG_TABLE_ALLOWLIST` in the reporting stack's `.env`.
-3. Re-register the connector: `make register-connector`.
+End-to-end procedure (publication update → connector refresh → incremental snapshot → dbt model + Superset dataset updates) lives in [runbook-add-tables.md](runbook-add-tables.md). The PG-side short version:
+
+1. `ALTER PUBLICATION dbz_publication ADD TABLE schema.tablename;` on the source DB (persist the change in your init SQL).
+2. Append the table to `SOURCE_PG_TABLE_ALLOWLIST` in the reporting stack's `.env`.
+3. `make connector-refresh` — default `auto` mode runs the publication preflight, re-registers, and triggers a Debezium **incremental snapshot** of just the new tables. Plain `make register-connector` is not enough — it would update the connector config but Debezium would skip the snapshot because its stored offset already exists.
 
 ## Network connectivity
 
@@ -167,10 +183,11 @@ Alert when:
 
 If `max_slot_wal_keep_size` is exceeded and the slot is invalidated:
 
-1. Delete the connector: `make delete-connector`
-2. Drop the orphaned slot: `SELECT pg_drop_replication_slot('debezium_reporting');`
-3. Re-register the connector: `make register-connector`
-4. Debezium will perform a new initial snapshot, then resume streaming
+```bash
+make recover-slot
+```
+
+This is the automated path: detects slot state, confirms with the operator, drops the orphan slot, re-registers the connector (Debezium creates a fresh slot and snapshots via `snapshot.mode=when_needed`), rebuilds dbt curated marts, and runs reconciliation as a final gate. See [runbook-slot-recovery.md](runbook-slot-recovery.md) for the full procedure including troubleshooting and prevention.
 
 ## Other operational notes
 

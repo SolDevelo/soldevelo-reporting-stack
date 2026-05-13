@@ -53,8 +53,7 @@ make dbt-build
 Or, if you know exactly which models depend on the refreshed tables, scope it:
 
 ```bash
-docker exec soldevelo-reporting-stack-airflow-scheduler-1 bash -lc \
-  "cd /opt/dbt && dbt build --select +mart_adjustments"
+bash scripts/dbt/run.sh build --select +mart_adjustments
 ```
 
 ### 5. Verify
@@ -63,13 +62,16 @@ docker exec soldevelo-reporting-stack-airflow-scheduler-1 bash -lc \
 make verify-dbt
 ```
 
-Compare a source count to a curated mart count for sanity:
+Or run `make reconcile` for cross-system row count + PK-checksum comparison across all tagged marts. For an ad-hoc spot check on one table:
 
 ```bash
-docker exec mw-distro-db-1 psql -U postgres -d open_lmis -tAc \
-  "SELECT count(*) FROM requisition.stock_adjustments"
-docker exec soldevelo-reporting-stack-clickhouse-1 clickhouse-client --query \
-  "SELECT count() FROM curated.mart_adjustments"
+# source PG
+docker compose --env-file .env -f compose/docker-compose.yml exec clickhouse \
+  clickhouse-client --query "
+SELECT 'source', count() FROM postgresql('${SOURCE_PG_HOST}:${SOURCE_PG_PORT}', '${SOURCE_PG_DB}',
+  'stock_adjustments', '${SOURCE_PG_USER}', '${SOURCE_PG_PASSWORD}', 'requisition')
+UNION ALL
+SELECT 'target', count() FROM curated.mart_adjustments"
 ```
 
 ## Troubleshooting

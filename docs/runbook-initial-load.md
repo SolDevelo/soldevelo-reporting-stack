@@ -120,7 +120,7 @@ Spot-check a row count between source and a curated mart:
 ```bash
 docker exec mw-distro-db-1 psql -U postgres -d open_lmis -tAc \
   "SELECT count(*) FROM referencedata.facilities WHERE active=true"
-docker exec soldevelo-reporting-stack-clickhouse-1 clickhouse-client --query \
+docker compose --env-file .env -f compose/docker-compose.yml exec clickhouse clickhouse-client --query \
   "SELECT count() FROM curated.dim_facility"
 ```
 

@@ -56,9 +56,10 @@ See [docs/architecture.md](../../docs/architecture.md#manifestyaml) for the full
 
 Key settings:
 - **JSON converters** for ClickHouse compatibility
-- **Initial snapshot** enabled — captures existing data on first start
+- **Snapshot mode** templated as `${DEBEZIUM_SNAPSHOT_MODE}` (default `when_needed` — runs a fresh snapshot when stored offsets point to an LSN no longer in WAL, otherwise behaves like `initial`). Override to `no_data` for the bootstrap initial-load workflow where data is preloaded via `make bootstrap-import` and Debezium should only record the LSN baseline.
+- **Source signal channel** enabled (`signal.enabled.channels=source`, `signal.data.collection=public.debezium_signal`) — Debezium reads signal rows for ad-hoc incremental snapshots triggered by `make snapshot-tables`.
 - **Heartbeat** every 10 seconds to `public.reporting_heartbeat`
-- **Table allowlist** from `${SOURCE_PG_TABLE_ALLOWLIST}`
+- **Table allowlist** from `${SOURCE_PG_TABLE_ALLOWLIST}` (the signal table is auto-appended by `register-connector.sh` so users only manage data tables)
 
 To customize for your system: copy this file, change the table allowlist and topic prefix, adjust decimal/time handling if needed.
 

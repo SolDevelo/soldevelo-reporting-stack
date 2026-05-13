@@ -11,9 +11,10 @@ make verify-services    # Kafka, Connect, Kafka UI, ClickHouse healthy
 make verify-cdc         # Connector running, topics exist, heartbeat advancing
 make verify-ingestion   # ClickHouse raw tables have data
 make verify-dbt         # Curated marts built and have data
+make reconcile          # source PG vs curated marts (row counts + PK checksum)
 ```
 
-If all pass, the pipeline is flowing normally.
+If all pass, the pipeline is flowing normally. `make reconcile` is the strongest of the four — it catches cases where data exists in the right shape but doesn't match source row-for-row (e.g., a publication drift that silently dropped CDC events, a stale-snapshot bug, or a botched backfill).
 
 ## Common failure scenarios
 
@@ -52,19 +53,58 @@ make recover              # auto-fixes failed tasks
 
 ### Replication slot invalidated
 
-**What happens:** If the reporting stack was down for an extended period, PostgreSQL's `max_slot_wal_keep_size` (configured in source DB setup) invalidates the replication slot to protect disk space. CDC events during the gap are permanently lost from the stream.
+**What happens:** If the reporting stack was down for an extended period, PostgreSQL's `max_slot_wal_keep_size` (configured in source DB setup) invalidates the replication slot to protect disk space. CDC events during the gap are permanently lost from the stream; the source DB still has the correct current state.
 
-**Recovery:** Delete the connector, drop the orphaned slot, and re-register. This triggers a full re-snapshot.
+**Recovery:**
 
 ```bash
-make delete-connector
-# On the source database:
-# SELECT pg_drop_replication_slot('debezium_reporting');
-make register-connector   # creates new slot, triggers full snapshot
-make dbt-build            # rebuild curated marts from fresh data
+make recover-slot
 ```
 
-See [source-db-setup.md](source-db-setup.md#recovery-after-slot-invalidation) for details.
+Interactive by default — confirms the slot is actually invalidated and prompts before destructive steps. Drops the orphan slot, re-registers the connector (which creates a fresh slot via `snapshot.mode=when_needed`), rebuilds dbt curated marts, and runs reconciliation as a final gate.
+
+`FORCE=1 make recover-slot` skips prompts for automation. Exit code 0 = clean recovery; exit 2 = recovery procedure succeeded but reconciliation reported divergences (advisory — re-run `make reconcile` after CDC catches up).
+
+Full procedure including troubleshooting and prevention: [runbook-slot-recovery.md](runbook-slot-recovery.md).
+
+### Adding a new source table
+
+```bash
+# 1. ALTER PUBLICATION dbz_publication ADD TABLE schema.tablename on the source DB
+# 2. Append the table to SOURCE_PG_TABLE_ALLOWLIST in .env
+make connector-refresh   # default `auto` mode: diff + incremental snapshot of new tables only
+```
+
+The publication preflight inside `register-connector` (which `connector-refresh` calls) fails fast if any allowlist table is missing from the publication, with an actionable error. Full procedure (PK check, dbt model + Superset dataset updates, troubleshooting): [runbook-add-tables.md](runbook-add-tables.md).
+
+### Bulk-loading or backfilling data
+
+For initial-load of a new deployment with significant historical data, or for targeted refresh of specific tables after a model fix:
+
+```bash
+make bootstrap-export
+make bootstrap-import
+make dbt-build && make reconcile
+```
+
+For initial-load specifically (where Debezium hasn't run yet), set `DEBEZIUM_SNAPSHOT_MODE=no_data` for the subsequent `make register-connector` so the connector records the LSN baseline without re-snapshotting. Detailed procedures: [runbook-initial-load.md](runbook-initial-load.md) and [runbook-backfill.md](runbook-backfill.md).
+
+## Cross-system reconciliation
+
+`make reconcile` runs dbt tests tagged `reconcile` that compare each curated mart against its source PostgreSQL table on two invariants:
+
+- **Row count**: `count()` from source vs target.
+- **PK checksum**: `sum(cityHash64(primary_key))` from source vs target. Catches "right count, wrong rows" — a row swapped between two snapshots, a soft-deleted row that wasn't removed from the mart, etc.
+
+The test reads source state on-demand via ClickHouse's `postgresql()` table function (ClickHouse joins the `reporting-shared` Docker network for this). When to run it:
+
+- After any `make recover-slot` or `make bootstrap-import` — confirms the recovery left the data matching source.
+- After a manual `ALTER PUBLICATION` or any operator-driven change to which tables are captured.
+- Routinely (weekly or so) as a data-quality sanity check; a divergence indicates either a CDC gap, a model bug, or a publication misalignment.
+
+**Reading a failure:** the test returns rows for each divergent metric (`metric`, `source_value`, `target_value`, `delta`). The compiled SQL is at `dbt/target/compiled/olmis_analytics_core/models/marts/schema.yml/reconcile_with_source_*.sql` — copy it into `clickhouse-client` for inspection.
+
+**Extending coverage:** add a `data_tests:` block referencing `reconcile_with_source` to the relevant mart in `schema.yml`. See the docstring at `examples/olmis-analytics-core/dbt/tests/generic/reconcile_with_source.sql` for the argument schema and a `target_filter` example for marts that include synthetic rows.
 
 ## The watchdog service
 
@@ -83,7 +123,7 @@ The `connect-watchdog` container runs alongside Kafka Connect and polls connecto
 |---|---|---|
 | `WATCHDOG_INTERVAL` | `30` | Seconds between health checks |
 
-**Logs:** `docker logs soldevelo-reporting-stack-connect-watchdog-1 -f`
+**Logs:** `docker compose --env-file .env -f compose/docker-compose.yml logs -f connect-watchdog`
 
 ## make recover
 
@@ -122,7 +162,7 @@ For production deployments, monitor these signals:
 | Airflow DAG status | `platform_refresh` DAG failures | Any failure = investigate |
 | Kafka consumer lag | ClickHouse Kafka Engine consumer group | Growing lag = ClickHouse falling behind |
 
-The Airflow `platform_refresh` DAG includes a freshness gate — if raw data is stale (older than `FRESHNESS_MAX_AGE_MINUTES`, default 120), it skips the dbt build to avoid serving stale curated data.
+The Airflow `platform_refresh` DAG includes a freshness gate — if raw data is stale (older than `FRESHNESS_MAX_AGE_MINUTES`, default 60), it skips the dbt build to avoid serving stale curated data.
 
 ## Planned version upgrades
 

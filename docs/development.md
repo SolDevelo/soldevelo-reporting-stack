@@ -58,13 +58,13 @@ Messages use JSON converters (not Avro) for ClickHouse compatibility. JSON is na
 
 #### Table allowlist
 
-The default allowlist (`SOURCE_PG_TABLE_ALLOWLIST` in `.env`) captures a small set of tables. To add tables:
+The default allowlist (`SOURCE_PG_TABLE_ALLOWLIST` in `.env`) captures a small set of tables. The end-to-end procedure for adding tables — publication update, signal-channel incremental snapshot, dbt model + Superset dataset updates — lives in [runbook-add-tables.md](runbook-add-tables.md). The short version:
 
-1. Update `SOURCE_PG_TABLE_ALLOWLIST` in `.env`
-2. Add the tables to the PostgreSQL publication (see [source-db-setup.md](source-db-setup.md))
-3. Refresh the connector: `make connector-refresh`
+1. Add the table to the source DB's publication (and persist in your init SQL).
+2. Append the table to `SOURCE_PG_TABLE_ALLOWLIST` in `.env`.
+3. `make connector-refresh` — default `auto` mode diffs the connector's current allowlist against `.env`, re-registers (the publication preflight runs first and fails fast on drift), and triggers a Debezium *incremental* snapshot of just the new tables via the signal channel. Existing tables keep their offsets and continue streaming uninterrupted.
 
-**Important**: use `make connector-refresh`, not `make register-connector`. A simple re-register updates the config but does not load existing data from the new tables (Debezium skips the snapshot if it has a stored offset). `connector-refresh` resets the offset and triggers a fresh snapshot of all tables. See [usage-guide.md](usage-guide.md#3-refresh-the-cdc-connector-with-snapshot) for details.
+`MODE=reset make connector-refresh` is the legacy full-offset-reset fallback (re-snapshots every captured table) — only needed if the signal table is unavailable. `MODE=incremental TABLES=schema.t make connector-refresh` skips the diff and snapshots an explicit table list.
 
 ### ClickHouse raw landing configuration
 
@@ -315,6 +315,14 @@ If the pipeline stops flowing and the watchdog hasn't resolved it:
 make recover    # verifies services, restarts failed tasks, re-registers if needed, checks CDC
 ```
 
+If PostgreSQL has invalidated the replication slot (`wal_status='lost'` in `pg_replication_slots`, typically after extended reporting-stack downtime), `make recover` cannot fix it — that needs the dedicated path:
+
+```bash
+make recover-slot   # drops orphan slot, re-registers connector, rebuilds dbt, runs reconcile
+```
+
+See [runbook-slot-recovery.md](runbook-slot-recovery.md) for the full procedure.
+
 For a full re-setup (e.g., after `make reset`):
 
 ```bash
@@ -329,6 +337,3 @@ make up && make setup
 4. `make setup` to re-configure (idempotent)
 5. Run the relevant `make verify-*` to verify
 
-## Implementation plan
-
-See [implementation-plan.md](implementation-plan.md) for the full task breakdown (Tasks 3–10).

@@ -93,7 +93,13 @@ This single command configures the entire pipeline end-to-end:
 
 ### 5. View dashboards
 
-Open [http://localhost:8088](http://localhost:8088) and log in with the default credentials (`admin` / `changeme`). You should see the **OLMIS Requisition Overview** dashboard with data from your source database.
+Open [http://localhost:8088](http://localhost:8088) and log in with the default credentials (`admin` / `changeme`). You should see nine dashboards loaded from the OLMIS core analytics package — Requisition Overview, Stock Status, Stockouts, Reporting Rate, Consumption, Adjustments, Orders, Facilities, and the Summary master view — populated with data from your source database. If you have the Malawi extension enabled (`ANALYTICS_EXTENSIONS_PATHS=examples/olmis-analytics-malawi`), four additional Malawi dashboards appear alongside.
+
+For a final cross-system sanity check that the curated marts match source row-for-row:
+
+```bash
+make reconcile
+```
 
 After the initial setup, Airflow refreshes the curated marts automatically on a schedule (default: hourly). To refresh manually at any time, run `make dbt-build`. See [Data freshness](#data-freshness) for configuration.
 
@@ -131,15 +137,33 @@ make superset-import    # re-import Superset dashboards
 ## Common operations
 
 ```bash
-make up          # start all services
-make down        # stop all services
-make ps          # show running services
-make logs        # tail all logs (SVC=kafka to filter)
-make setup       # full pipeline setup: CDC + ClickHouse + dbt + Superset (idempotent)
-make dbt-build   # run dbt transformations (builds curated marts)
-make reset       # ⚠ DESTRUCTIVE: stop and delete all data (Kafka, ClickHouse, Airflow)
-make build       # rebuild Docker images after changes
-make superset-import  # import Superset dashboards from analytics packages
+# Lifecycle
+make up                # start all services
+make down              # stop all services
+make ps                # show running services
+make logs              # tail all logs (SVC=kafka to filter)
+make setup             # full pipeline setup: CDC + ClickHouse + dbt + Superset (idempotent)
+make build             # rebuild Docker images after changes
+make reset             # ⚠ DESTRUCTIVE: stop and delete all data (Kafka, ClickHouse, Airflow)
+
+# Connector + CDC table management (see docs/runbook-add-tables.md)
+make register-connector
+make connector-status
+make connector-refresh                              # auto-detect new tables → incremental snapshot
+make snapshot-tables TABLES=schema.t1,schema.t2     # explicit incremental snapshot
+
+# Recovery + reconciliation
+make recover                                        # restore broken pipeline (failed tasks, consumer groups)
+make recover-slot                                   # recover invalidated replication slot (see docs/runbook-slot-recovery.md)
+make reconcile                                      # source PG vs curated marts (row counts + PK checksum)
+
+# Bootstrap loading (see docs/runbook-initial-load.md / docs/runbook-backfill.md)
+make bootstrap-export
+make bootstrap-import
+
+# Build + import
+make dbt-build                                      # run dbt transformations (builds curated marts)
+make superset-import                                # import Superset dashboards from analytics packages
 ```
 
 ## Environment configuration
@@ -212,23 +236,6 @@ docs/              Architecture, development guide, runbooks
 examples/          Reference analytics packages (OLMIS core + Malawi extension)
 ```
 
-## Implementation status
-
-| Task | Status |
-|---|---|
-| Base platform (Kafka, Connect, Kafka UI) | Complete |
-| Debezium CDC ingestion | Complete |
-| ClickHouse raw landing | Complete |
-| dbt transformations | Complete |
-| Airflow orchestration | Complete |
-| Superset + assets-as-code | Complete |
-| Package system formalization | Complete |
-| Extension example (Malawi) | Complete |
-| Bootstrap, backfill, slot recovery | Post-MVP |
-| Monitoring and alerting | Post-MVP |
-
-See [docs/implementation-plan.md](docs/implementation-plan.md) for detailed task specifications.
-
 ## Documentation
 
 | Document | Purpose |
@@ -243,7 +250,7 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for detailed task
 | [docs/runbook-initial-load.md](docs/runbook-initial-load.md) | Step-by-step: bootstrap a new deployment via direct PG→ClickHouse export/import |
 | [docs/runbook-backfill.md](docs/runbook-backfill.md) | Step-by-step: targeted backfill of specific tables |
 | [docs/end-to-end-test.md](docs/end-to-end-test.md) | End-to-end test: OLMIS change → CDC → ClickHouse → dbt → Superset |
-| [docs/implementation-plan.md](docs/implementation-plan.md) | Implementation task breakdown (Tasks 3–10) |
+| [docs/migration-differences.md](docs/migration-differences.md) | Record of intentional differences vs legacy mw-distro dashboards |
 
 ## Contributing
 

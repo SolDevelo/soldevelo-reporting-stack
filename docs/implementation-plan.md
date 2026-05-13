@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Tasks 0–8.5 (base platform + Debezium CDC + folder restructure + ClickHouse + dbt + Airflow + Superset + docs + packages + extension example + pipeline stability) are complete. The plan below covers MVP delivery (Tasks 3–8.5) and post-MVP stages (Tasks 9–10).
+Tasks 0–8.5 and version upgrades 8.1–8.4 (base platform + Debezium CDC + folder restructure + ClickHouse + dbt + Airflow + Superset + docs + packages + extension example + pipeline stability + latest-stable pins) plus the full dashboard migration from mw-distro are complete. The plan below covers MVP delivery (Tasks 3–9) and the remaining post-MVP stage (Task 10).
 
 Each task from 3 onward incrementally builds the OLMIS example packages under `examples/` alongside the platform components they exercise. By the end of Task 6, `examples/olmis-analytics-core/` is a complete working reference package. Tasks 7–8 formalize the package system and add the extension example.
 
@@ -378,10 +378,6 @@ Requirements:
 
 Deliverables: updated Dockerfile + DAG + compose + verify script + docs.
 
----
-
-## Post-MVP stages
-
 ### Task 9 — Bootstrap, backfill, and slot invalidation recovery
 
 This task covers four related scenarios that share the same tooling: initial load for new deployments, targeted backfill for specific tables/date ranges, recovery after a replication slot invalidation, and selective snapshot after adding new tables to the CDC allowlist.
@@ -462,7 +458,23 @@ Target solution: Debezium incremental snapshot (see Design notes below) to snaps
 - Reconciliation tests (counts/sums between source PostgreSQL and curated marts) are critical after any recovery to confirm data integrity.
 - **Debezium incremental snapshot** is the key mechanism that unifies Scenarios C and D. It works by inserting a signal row into a watched table, which tells Debezium to re-read specific tables chunk by chunk alongside the live CDC stream — no connector restart needed, no offset reset, no disruption to ongoing change capture. This is the recommended approach for production deployments; the current `make connector-refresh` (full offset reset) remains as a simpler fallback for development environments.
 
-This task is planned for the second stage, after the MVP platform is validated with real OLMIS data. However, the basic slot recovery procedure (delete connector → drop slot → re-register) works immediately with the current setup — it just triggers Debezium's built-in full snapshot rather than the optimized export/import path. Similarly, `make connector-refresh` handles the "add new tables" case today via full offset reset.
+**Development phases:**
+
+Task 9 is split into five phases, each independently shippable. Recommended order:
+
+| Phase | Scope | Why this order |
+|---|---|---|
+| 9.1 | **Incremental snapshot foundation.** Signal table in source DB (mw-distro + ref-distro init SQL), connector config (`signal.data.collection`, `signal.enabled.channels=source`), `scripts/connect/snapshot-tables.sh`, `make snapshot-tables TABLES=…`, update `make connector-refresh` to prefer incremental snapshot. Runbook: `docs/runbook-add-tables.md`. | Foundation reused by 9.2 and 9.3. Immediately resolves the "added a table, need to backfill just that table" pain point that today requires a full offset reset. |
+| 9.2 | **Slot invalidation recovery.** Detection helper (queries `pg_replication_slots` for `wal_status='lost'`), `scripts/bootstrap/recover-slot.sh` (delete connector → drop orphaned slot → re-register → wait for snapshot → trigger dbt build → run reconciliation), `make recover-slot`. Runbook: `docs/runbook-slot-recovery.md`. | Closes the highest-impact silent-data-loss case. Uses 9.1's incremental snapshot path when only specific tables need re-baselining. |
+| 9.3 | **Bootstrap export/import.** `scripts/bootstrap/export.sh` (pg_dump or `COPY` to file + watermark timestamp), `scripts/bootstrap/import.sh` (load file into ClickHouse `raw` with watermark, idempotent), `--tables` flag for targeted operations. Runbooks: `docs/runbook-initial-load.md`, `docs/runbook-backfill.md`. | Needed for new-country initial load (Malawi dev deploy). Optional once 9.1 + 9.2 exist — Debezium incremental snapshot can handle most cases — but `pg_dump` is faster than CDC for true cold starts on large tables. |
+| 9.4 | **Airflow backfill DAG.** `airflow/dags/backfill.py` — manual-trigger DAG with parameters (table list, optional date range), wraps the export/import + dbt-build path from 9.3. | Operator ergonomics: parametrised backfill via Airflow UI instead of shelling into the host. |
+| 9.5 | **Reconciliation + verification.** Reconciliation test pattern (row counts and key-column checksums: source PostgreSQL vs `curated.*`) wired into dbt as a custom generic test, and into `recover-slot.sh` / backfill DAG as a final gate. | Without this, any recovery is "probably fine" rather than "verifiably correct." Lives last because it consumes the other phases' outputs. |
+
+Each phase ships with verification against mw-distro before merging. Phase 9.1–9.2 are the floor for a Malawi dev deployment; 9.3–9.5 can land before or after the deploy, depending on whether you start with an empty ClickHouse (no bootstrap needed — let CDC initial-snapshot handle it) or want to pre-load historical state.
+
+---
+
+## Post-MVP stages
 
 ### Task 10 — Monitoring and alerting
 

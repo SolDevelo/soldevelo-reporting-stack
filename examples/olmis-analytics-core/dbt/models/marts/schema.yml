@@ -72,6 +72,14 @@ models:
       Joins line items with facility, product, program, and period dimensions.
       Includes all requisition statuses within a rolling 3-year window.
       BI contract: dashboards should query this mart, not raw tables.
+    # Reconcile note: the mart applies a 3-year rolling window on requisition
+    # created_date and inner-joins to stg_requisitions. The reconcile test
+    # below has no source_filter to match — so it will diverge spuriously when
+    # (a) source line items exist for requisitions deleted from PG (their line
+    # items remain in source but are correctly absent from the mart after the
+    # delete-handling fix), or (b) data ages past the 3-year window. Today on
+    # mw-distro neither path triggers, so the test passes. Tightening the
+    # source_filter to mirror the mart's window is tracked as a follow-up.
     data_tests:
       - reconcile_with_source:
           arguments:

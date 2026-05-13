@@ -94,7 +94,7 @@ All dbt models live in the analytics package (e.g., `examples/olmis-analytics-co
 
 Staging models reconstruct **current state** from the append-only CDC event stream. Each staging model reads from one raw landing table.
 
-The pattern uses a ranked CTE to select the latest event per primary key, excluding deletes:
+The pattern uses a ranked CTE to select the latest event per primary key. Delete events (`op='d'`) populate the row's PK in `before`, not `after`, so the partition key needs to cover both — and the `op != 'd'` filter has to run AFTER the ranking, otherwise the delete event is dropped from the partition entirely and the prior insert wins as `_rn = 1` (the row stays in the view forever).
 
 ```sql
 {{
@@ -107,12 +107,17 @@ with ranked as (
   select
     *,
     row_number() over (
-      partition by JSONExtractString(after, 'id')
+      partition by coalesce(
+        nullIf(JSONExtractString(after,  'id'), ''),
+        nullIf(JSONExtractString(before, 'id'), '')
+      )
       order by ts_ms desc, _ingested_at desc
     ) as _rn
   from raw.events_openlmis_referencedata_facilities
-  where op != 'd'
-    and JSONExtractString(after, 'id') != ''
+  where coalesce(
+    nullIf(JSONExtractString(after,  'id'), ''),
+    nullIf(JSONExtractString(before, 'id'), '')
+  ) != ''
 )
 
 select
@@ -122,17 +127,17 @@ select
   JSONExtractBool(after, 'active')           as active
 from ranked
 where _rn = 1
+  and op != 'd'
 ```
 
 Key points:
 
-- **`partition by`** on the primary key column (extracted from the `after` JSON payload)
-- **`order by ts_ms desc, _ingested_at desc`** ensures the latest event wins
-- **`where op != 'd'`** excludes deletes (deleted rows disappear from the view)
-- **`JSONExtractString(after, 'id') != ''`** filters out events with empty payloads (e.g., tombstones)
-- **JSON extraction functions**: `JSONExtractString`, `JSONExtractBool`, `JSONExtractInt`, `JSONExtractFloat` for typed access to the CDC payload
-- **Type casting**: `toUUID()` / `toUUIDOrNull()` for UUID columns, standard ClickHouse cast functions for others
-- **Materialized as `view`** — staging models are lightweight and always read current data
+- **Partition key uses `coalesce(nullIf(after.<pk>, ''), nullIf(before.<pk>, ''))`.** `JSONExtractString` returns the empty string (not NULL) for missing fields, so plain `coalesce` doesn't fall through — the `nullIf` wrappers convert empty strings to NULL before coalesce can prefer the populated side. This puts delete events (PK in `before`) into the same partition as their corresponding insert/update events.
+- **`order by ts_ms desc, _ingested_at desc`** ensures the latest event wins.
+- **`where _rn = 1 and op != 'd'`** in the outer select: keep only the latest event per PK, then drop rows whose latest event is a delete.
+- **JSON extraction functions**: `JSONExtractString`, `JSONExtractBool`, `JSONExtractInt`, `JSONExtractFloat` for typed access to the CDC payload. Since the outer filter ensures `op != 'd'`, `after` is always populated where these are read.
+- **Type casting**: `toUUID()` / `toUUIDOrNull()` for UUID columns, standard ClickHouse cast functions for others.
+- **Materialized as `view`** — staging models are lightweight and always read current data.
 
 **CDC data type gotchas:**
 

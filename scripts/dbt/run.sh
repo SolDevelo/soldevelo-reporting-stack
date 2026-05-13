@@ -40,6 +40,14 @@ else
   DOCKER_ROOT="$SCRIPT_ROOT"
 fi
 
+# Guard: a relative DOCKER_ROOT would silently mount the wrong host directory
+# (the daemon resolves relative paths against its own cwd, not the caller's).
+if [[ "$DOCKER_ROOT" != /* ]]; then
+  echo "ERROR: REPORTING_HOST_ROOT must be an absolute path (got: '$DOCKER_ROOT')" >&2
+  echo "       Update .env so the Docker daemon can resolve volume mounts correctly." >&2
+  exit 1
+fi
+
 ANALYTICS_CORE_PATH="${ANALYTICS_CORE_PATH:-examples/olmis-analytics-core}"
 ANALYTICS_EXTENSIONS_PATHS="${ANALYTICS_EXTENSIONS_PATHS:-}"
 CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-clickhouse}"
@@ -73,9 +81,14 @@ EOF
     IFS=',' read -ra EXT_URLS <<< "$ANALYTICS_EXTENSION_GIT_URLS"
     IFS=',' read -ra EXT_REFS <<< "$ANALYTICS_EXTENSION_GIT_REFS"
     for i in "${!EXT_URLS[@]}"; do
+      # Trailing comma in the env var (a common shape with envsubst /
+      # compose interpolation) produces empty array elements. Skip them
+      # rather than writing duplicate or blank entries into packages.yml.
+      ext_url="$(echo "${EXT_URLS[$i]}" | xargs)"
+      [ -z "$ext_url" ] && continue
       local_ref="${EXT_REFS[$i]:-main}"
       cat >> "$DBT_DIR/packages.yml" <<EOF
-  - git: "$(echo "${EXT_URLS[$i]}" | xargs)"
+  - git: "$ext_url"
     revision: "$(echo "$local_ref" | xargs)"
     subdirectory: "dbt"
 EOF
@@ -91,14 +104,21 @@ EOF
   if [ -n "$ANALYTICS_EXTENSIONS_PATHS" ]; then
     IFS=',' read -ra EXTENSIONS <<< "$ANALYTICS_EXTENSIONS_PATHS"
     for i in "${!EXTENSIONS[@]}"; do
+      # Same skip-empty guard as the git-mode branch.
+      ext_path="$(echo "${EXTENSIONS[$i]}" | xargs)"
+      [ -z "$ext_path" ] && continue
       echo "  - local: /analytics/extensions/$i/dbt" >> "$DBT_DIR/packages.yml"
     done
   fi
 fi
 
-# Docker build uses DOCKER_ROOT (host path for daemon to find build context)
+# `docker build <ctx>` tars the context on the CLI side, so the path must
+# exist in the script's own filesystem (SCRIPT_ROOT), not the host filesystem
+# the daemon sees (DOCKER_ROOT). When invoked from inside the airflow-scheduler
+# container, SCRIPT_ROOT is /opt/reporting (the bind-mount); DOCKER_ROOT is the
+# host path the daemon uses for `docker run -v` later.
 echo "Building dbt Docker image..."
-docker build -q -t reporting-dbt "$DOCKER_ROOT/dbt"
+docker build -q -t reporting-dbt "$SCRIPT_ROOT/dbt"
 
 COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-soldevelo-reporting-stack}"
 

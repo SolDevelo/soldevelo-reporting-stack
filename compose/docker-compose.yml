@@ -236,6 +236,17 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/airflow"
       AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY}"
+      # Shared JWT signing key for the Airflow 3.x Task Execution API. Without
+      # this every container generates its own random key on startup and
+      # cross-component requests fail with "Invalid auth token: Signature
+      # verification failed". Reusing FERNET_KEY (a base64 32-byte random
+      # value managed via .env) avoids introducing yet another secret env var;
+      # if FERNET_KEY is ever rotated, the new value must be applied to all
+      # four Airflow services in a single `docker compose up -d` so the JWT
+      # secret stays in sync. NOTE: `docker compose restart` does NOT pick up
+      # environment changes from this file — operators upgrading must run
+      # `docker compose up -d` (or `make up`) for new env vars to take effect.
+      AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW__CORE__FERNET_KEY}"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_ADMIN_USER:-admin}:admin"
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: "/opt/airflow/auth/passwords.json"
@@ -287,6 +298,17 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/airflow"
       AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY}"
+      # Shared JWT signing key for the Airflow 3.x Task Execution API. Without
+      # this every container generates its own random key on startup and
+      # cross-component requests fail with "Invalid auth token: Signature
+      # verification failed". Reusing FERNET_KEY (a base64 32-byte random
+      # value managed via .env) avoids introducing yet another secret env var;
+      # if FERNET_KEY is ever rotated, the new value must be applied to all
+      # four Airflow services in a single `docker compose up -d` so the JWT
+      # secret stays in sync. NOTE: `docker compose restart` does NOT pick up
+      # environment changes from this file — operators upgrading must run
+      # `docker compose up -d` (or `make up`) for new env vars to take effect.
+      AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW__CORE__FERNET_KEY}"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_ADMIN_USER:-admin}:admin"
@@ -322,10 +344,32 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/airflow"
       AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY}"
+      # Shared JWT signing key for the Airflow 3.x Task Execution API. Without
+      # this every container generates its own random key on startup and
+      # cross-component requests fail with "Invalid auth token: Signature
+      # verification failed". Reusing FERNET_KEY (a base64 32-byte random
+      # value managed via .env) avoids introducing yet another secret env var;
+      # if FERNET_KEY is ever rotated, the new value must be applied to all
+      # four Airflow services in a single `docker compose up -d` so the JWT
+      # secret stays in sync. NOTE: `docker compose restart` does NOT pick up
+      # environment changes from this file — operators upgrading must run
+      # `docker compose up -d` (or `make up`) for new env vars to take effect.
+      AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW__CORE__FERNET_KEY}"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_ADMIN_USER:-admin}:admin"
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: "/opt/airflow/auth/passwords.json"
+      # Airflow 3.x Task SDK: worker subprocesses call back to the Execution
+      # API on the api-server container. Without this, the SDK falls back to
+      # http://localhost:8080 which doesn't resolve to the separate webserver
+      # container — every task fails with httpcore.ConnectError: refused.
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://airflow-webserver:8080/execution/"
+      # Suppress LocalExecutor's zombie-task recovery (default: 5 silent
+      # re-runs on unexpected subprocess exit). Without this, a SIGTERM during
+      # a dbt build can quietly re-run the task several times, accumulating
+      # state in dbt/packages.yml and confusing the operator about what tried
+      # to run. Task-level DAG retries (default_args.retries) still apply.
+      AIRFLOW__CORE__MAX_TASK_RETRIES_ON_UNEXPECTED_EXIT: "0"
       REPORTING_HOST_ROOT: "${REPORTING_HOST_ROOT:-}"
     user: "${AIRFLOW_UID:-50000}:0"
     volumes:
@@ -335,7 +379,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../:/opt/reporting
     command: scheduler
-    mem_limit: 512m
+    # 512m was tight under LocalExecutor parallelism + the docker-build dbt
+    # path; the scheduler was OOM-killed (exit 137) when triggering backfill
+    # runs that build the dbt image. 768m gives headroom without bloat.
+    mem_limit: 768m
     healthcheck:
       test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\" || exit 1"]
       interval: 30s
@@ -361,6 +408,17 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/airflow"
       AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW__CORE__FERNET_KEY}"
+      # Shared JWT signing key for the Airflow 3.x Task Execution API. Without
+      # this every container generates its own random key on startup and
+      # cross-component requests fail with "Invalid auth token: Signature
+      # verification failed". Reusing FERNET_KEY (a base64 32-byte random
+      # value managed via .env) avoids introducing yet another secret env var;
+      # if FERNET_KEY is ever rotated, the new value must be applied to all
+      # four Airflow services in a single `docker compose up -d` so the JWT
+      # secret stays in sync. NOTE: `docker compose restart` does NOT pick up
+      # environment changes from this file — operators upgrading must run
+      # `docker compose up -d` (or `make up`) for new env vars to take effect.
+      AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW__CORE__FERNET_KEY}"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_ADMIN_USER:-admin}:admin"

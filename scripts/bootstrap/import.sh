@@ -35,7 +35,17 @@ if [ -f "$REPO_ROOT/.env" ]; then
   set -a; source "$REPO_ROOT/.env"; set +a
 fi
 
-CLICKHOUSE_HOST="${CLICKHOUSE_HOST_EXTERNAL:-localhost}"
+# Resolve ClickHouse hostname:
+#   - Inside a Docker container (e.g. Airflow scheduler running the backfill
+#     DAG), the host is the compose-network service name. Use CLICKHOUSE_HOST
+#     from .env (default 'clickhouse').
+#   - On the host shell, default to localhost (CLICKHOUSE_HOST_EXTERNAL takes
+#     precedence if set, e.g. for remote ClickHouse deployments).
+if [ -f "/.dockerenv" ]; then
+  CLICKHOUSE_HOST="${CLICKHOUSE_HOST:-clickhouse}"
+else
+  CLICKHOUSE_HOST="${CLICKHOUSE_HOST_EXTERNAL:-localhost}"
+fi
 CLICKHOUSE_PORT="${CLICKHOUSE_PORT:-8123}"
 CLICKHOUSE_USER="${CLICKHOUSE_USER:-default}"
 CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-changeme}"

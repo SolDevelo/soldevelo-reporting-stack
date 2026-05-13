@@ -30,6 +30,10 @@
     "tombstones.on.delete": "true",
     "snapshot.mode": "initial",
 
+    "_comment.signal": "Source signal channel: Debezium reads rows from public.debezium_signal to trigger ad-hoc actions like incremental snapshots (see scripts/connect/snapshot-tables.sh). The signal table must be in the publication AND in table.include.list — register-connector.sh appends it automatically so users only configure SOURCE_PG_TABLE_ALLOWLIST. The value for signal.data.collection uses Debezium's schema.table form for the PostgreSQL connector (no database prefix).",
+    "signal.enabled.channels": "source",
+    "signal.data.collection": "public.debezium_signal",
+
     "heartbeat.interval.ms": "10000",
     "heartbeat.action.query": "INSERT INTO public.reporting_heartbeat (ts) VALUES (NOW()) ON CONFLICT (id) DO UPDATE SET ts = NOW()",
 

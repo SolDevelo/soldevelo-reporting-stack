@@ -237,6 +237,8 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for detailed task
 | [docs/development.md](docs/development.md) | Developer workflow, step-by-step verification, debugging |
 | [docs/source-db-setup.md](docs/source-db-setup.md) | Source database configuration, WAL safety, network setup |
 | [docs/usage-guide.md](docs/usage-guide.md) | Practical how-tos: add tables, dbt models, Superset charts, author packages |
+| [docs/operations.md](docs/operations.md) | Operational runbook: normal operation, failure recovery, monitoring |
+| [docs/runbook-add-tables.md](docs/runbook-add-tables.md) | Step-by-step: add new source tables to CDC via incremental snapshot |
 | [docs/end-to-end-test.md](docs/end-to-end-test.md) | End-to-end test: OLMIS change → CDC → ClickHouse → dbt → Superset |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Implementation task breakdown (Tasks 3–10) |
 

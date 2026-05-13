@@ -12,14 +12,25 @@ with ranked as (
     *,
     row_number() over (
       partition by
-        JSONExtractString(after, 'facilityid'),
-        JSONExtractString(after, 'programid')
+        coalesce(
+        nullIf(JSONExtractString(after,  'facilityid'), ''),
+        nullIf(JSONExtractString(before, 'facilityid'), '')
+      ),
+        coalesce(
+        nullIf(JSONExtractString(after,  'programid'), ''),
+        nullIf(JSONExtractString(before, 'programid'), '')
+      )
       order by ts_ms desc, _ingested_at desc
     ) as _rn
   from raw.events_openlmis_referencedata_supported_programs
-  where op != 'd'
-    and JSONExtractString(after, 'facilityid') != ''
-    and JSONExtractString(after, 'programid') != ''
+  where coalesce(
+        nullIf(JSONExtractString(after,  'facilityid'), ''),
+        nullIf(JSONExtractString(before, 'facilityid'), '')
+      ) != ''
+    and coalesce(
+        nullIf(JSONExtractString(after,  'programid'), ''),
+        nullIf(JSONExtractString(before, 'programid'), '')
+      ) != ''
 )
 
 select
@@ -29,3 +40,4 @@ select
   JSONExtractBool(after, 'locallyfulfilled')             as locally_fulfilled
 from ranked
 where _rn = 1
+  and op != 'd'

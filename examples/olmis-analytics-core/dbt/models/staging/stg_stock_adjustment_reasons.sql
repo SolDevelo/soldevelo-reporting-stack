@@ -16,12 +16,17 @@ with ranked as (
   select
     *,
     row_number() over (
-      partition by JSONExtractString(after, 'id')
+      partition by coalesce(
+        nullIf(JSONExtractString(after,  'id'), ''),
+        nullIf(JSONExtractString(before, 'id'), '')
+      )
       order by ts_ms desc, _ingested_at desc
     ) as _rn
   from raw.events_openlmis_requisition_stock_adjustment_reasons
-  where op != 'd'
-    and JSONExtractString(after, 'id') != ''
+  where coalesce(
+        nullIf(JSONExtractString(after,  'id'), ''),
+        nullIf(JSONExtractString(before, 'id'), '')
+      ) != ''
 ),
 
 current_state as (
@@ -35,6 +40,7 @@ current_state as (
     JSONExtractBool(after, 'hidden')                        as hidden
   from ranked
   where _rn = 1
+    and op != 'd'
 )
 
 -- Deduplicate to one row per global reason_id. argMax picks the name

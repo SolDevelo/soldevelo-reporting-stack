@@ -10,12 +10,17 @@ with ranked as (
   select
     *,
     row_number() over (
-      partition by JSONExtractString(after, 'id')
+      partition by coalesce(
+        nullIf(JSONExtractString(after,  'id'), ''),
+        nullIf(JSONExtractString(before, 'id'), '')
+      )
       order by ts_ms desc, _ingested_at desc
     ) as _rn
   from raw.events_openlmis_referencedata_processing_schedules
-  where op != 'd'
-    and JSONExtractString(after, 'id') != ''
+  where coalesce(
+        nullIf(JSONExtractString(after,  'id'), ''),
+        nullIf(JSONExtractString(before, 'id'), '')
+      ) != ''
 )
 
 select
@@ -25,3 +30,4 @@ select
   JSONExtractString(after, 'description')   as description
 from ranked
 where _rn = 1
+  and op != 'd'

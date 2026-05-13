@@ -10,12 +10,17 @@ with ranked as (
   select
     *,
     row_number() over (
-      partition by JSONExtractString(after, 'id')
+      partition by coalesce(
+        nullIf(JSONExtractString(after,  'id'), ''),
+        nullIf(JSONExtractString(before, 'id'), '')
+      )
       order by ts_ms desc, _ingested_at desc
     ) as _rn
   from raw.events_openlmis_requisition_requisition_line_items
-  where op != 'd'
-    and JSONExtractString(after, 'id') != ''
+  where coalesce(
+        nullIf(JSONExtractString(after,  'id'), ''),
+        nullIf(JSONExtractString(before, 'id'), '')
+      ) != ''
 )
 
 select
@@ -42,3 +47,4 @@ select
   JSONExtractBool(after, 'nonfullsupply')                 as non_full_supply
 from ranked
 where _rn = 1
+  and op != 'd'

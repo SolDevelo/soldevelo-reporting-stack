@@ -72,6 +72,14 @@ models:
       Joins line items with facility, product, program, and period dimensions.
       Includes all requisition statuses within a rolling 3-year window.
       BI contract: dashboards should query this mart, not raw tables.
+    data_tests:
+      - reconcile_with_source:
+          arguments:
+            source_table: requisition.requisition_line_items
+            source_pk: id
+            target_pk: line_item_id
+          config:
+            tags: [reconcile]
     columns:
       - name: line_item_id
         description: Requisition line item UUID
@@ -142,6 +150,14 @@ models:
       requisition, facility, program, period, product, the latest
       non-INITIATED/SUBMITTED/SKIPPED status change, and the adjustment
       reason. Replaces the legacy `adjustments` materialized view.
+    data_tests:
+      - reconcile_with_source:
+          arguments:
+            source_table: requisition.stock_adjustments
+            source_pk: id
+            target_pk: adjustment_id
+          config:
+            tags: [reconcile]
     columns:
       - name: adjustment_id
         tests:

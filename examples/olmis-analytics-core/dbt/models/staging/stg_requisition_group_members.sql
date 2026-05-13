@@ -12,14 +12,25 @@ with ranked as (
     *,
     row_number() over (
       partition by
-        JSONExtractString(after, 'requisitiongroupid'),
-        JSONExtractString(after, 'facilityid')
+        coalesce(
+        nullIf(JSONExtractString(after,  'requisitiongroupid'), ''),
+        nullIf(JSONExtractString(before, 'requisitiongroupid'), '')
+      ),
+        coalesce(
+        nullIf(JSONExtractString(after,  'facilityid'), ''),
+        nullIf(JSONExtractString(before, 'facilityid'), '')
+      )
       order by ts_ms desc, _ingested_at desc
     ) as _rn
   from raw.events_openlmis_referencedata_requisition_group_members
-  where op != 'd'
-    and JSONExtractString(after, 'requisitiongroupid') != ''
-    and JSONExtractString(after, 'facilityid') != ''
+  where coalesce(
+        nullIf(JSONExtractString(after,  'requisitiongroupid'), ''),
+        nullIf(JSONExtractString(before, 'requisitiongroupid'), '')
+      ) != ''
+    and coalesce(
+        nullIf(JSONExtractString(after,  'facilityid'), ''),
+        nullIf(JSONExtractString(before, 'facilityid'), '')
+      ) != ''
 )
 
 select
@@ -27,3 +38,4 @@ select
   toUUIDOrNull(JSONExtractString(after, 'facilityid'))          as facility_id
 from ranked
 where _rn = 1
+  and op != 'd'

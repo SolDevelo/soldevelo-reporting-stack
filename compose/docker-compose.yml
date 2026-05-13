@@ -173,6 +173,11 @@ services:
     restart: unless-stopped
     networks:
       - reporting
+      # Joins reporting-shared so the postgresql() table function can reach the
+      # source DB for reconciliation tests (Phase 9.5: cross-system row count +
+      # PK checksum comparison). Existing kafka-connect joins this network the
+      # same way; ClickHouse's role here is read-only.
+      - reporting-shared
     depends_on:
       kafka:
         condition: service_healthy

@@ -26,6 +26,12 @@ Tasks (sequential):
   2. import_to_clickhouse — scripts/bootstrap/import.sh reads .bootstrap/latest
                            and inserts synthetic op='r' events into raw.events_*.
   3. dbt_build           — scripts/dbt/run.sh build. Gated by run_dbt param.
+  4. reconcile           — scripts/dbt/run.sh test --select tag:reconcile.
+                           Cross-system row count + PK checksum comparison.
+                           Runs only when dbt_build succeeded (skipped if
+                           run_dbt=false). Hard-fails the DAG run on any
+                           divergence — re-trigger or run `make reconcile`
+                           manually after CDC catches up.
 
 Notes on running from Airflow:
   - The airflow-scheduler container has the host docker socket bind-mounted,
@@ -121,11 +127,12 @@ bash /opt/reporting/scripts/bootstrap/export.sh
         # what export_tables just produced. If the operator later wants to
         # import only a subset of the manifest, they can re-run the DAG with
         # a smaller `tables` param (re-exports the subset).
-        bash_command="bash /opt/reporting/scripts/bootstrap/import.sh",
-        # Disable the default `('.sh', '.bash')` template-file lookup so the
-        # bash_command's trailing `.sh` is not mis-resolved as a Jinja
-        # template filename.
-        template_ext=(),
+        # Trailing space defeats Jinja's "command ends in .sh → look up as a
+        # template file" heuristic. `template_ext` is a class attribute on
+        # BashOperator in Airflow 3.x, not an __init__ kwarg, so it can't be
+        # overridden per-instance without subclassing — the space is the
+        # least-intrusive workaround.
+        bash_command="bash /opt/reporting/scripts/bootstrap/import.sh ",
     )
 
     gate_dbt = ShortCircuitOperator(
@@ -139,4 +146,16 @@ bash /opt/reporting/scripts/bootstrap/export.sh
         bash_command="bash /opt/reporting/scripts/dbt/run.sh build",
     )
 
-    export_tables >> import_to_clickhouse >> gate_dbt >> dbt_build
+    # Reconciliation runs only when the preceding dbt_build succeeded. We do
+    # NOT soft-fail: if source/target diverge, the Airflow run is marked
+    # failed and the operator sees it without having to read every task log.
+    # In the common case where divergence is transient (CDC still catching
+    # up), the operator re-triggers `make reconcile` from the host a minute
+    # later, and the next run is clean. False-green runs were the alternative
+    # and they cost more than the noise of an honest failure.
+    reconcile = BashOperator(
+        task_id="reconcile",
+        bash_command="bash /opt/reporting/scripts/dbt/run.sh test --select tag:reconcile",
+    )
+
+    export_tables >> import_to_clickhouse >> gate_dbt >> dbt_build >> reconcile

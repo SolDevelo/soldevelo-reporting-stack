@@ -70,9 +70,28 @@ ALTER ROLE postgres WITH REPLICATION;
 
 The reporting stack needs TCP access to the source PostgreSQL on port 5432.
 
-**With openlmis-ref-distro (automated):** The `docker-compose.reporting-stack.yml` overlay creates a `reporting-shared` network and attaches the DB as `olmis-db`. The reporting stack's `kafka-connect` joins this network automatically.
+**With openlmis-ref-distro (automated):** The `docker-compose.reporting-stack.yml` overlay creates a `reporting-shared` network and attaches the DB as `olmis-db`. The reporting stack's `kafka-connect` and `clickhouse` both join this network — the latter so reconciliation tests can call ClickHouse's `postgresql()` table function against the source DB.
 
 **In production:** Set `SOURCE_PG_HOST` to the actual database hostname or IP. No shared Docker network is needed — the reporting stack connects directly.
+
+### Least-privilege user for reconciliation (recommended for production)
+
+The reconciliation tests run inside ClickHouse via the `postgresql()` table function and use the `SOURCE_PG_USER` / `SOURCE_PG_PASSWORD` creds from `.env`. In the dev distros these are the same superuser creds Debezium uses, which means a compromised ClickHouse can read or modify anything in the source DB.
+
+For production, create a dedicated read-only role and reference it from a *separate* env var (Debezium still needs its own `REPLICATION` user — they should not share creds):
+
+```sql
+CREATE ROLE reporting_reconcile WITH LOGIN PASSWORD '...';
+GRANT USAGE ON SCHEMA referencedata, requisition TO reporting_reconcile;
+GRANT SELECT ON ALL TABLES IN SCHEMA referencedata, requisition TO reporting_reconcile;
+ALTER DEFAULT PRIVILEGES IN SCHEMA referencedata, requisition
+  GRANT SELECT ON TABLES TO reporting_reconcile;
+```
+
+Today the reconciliation test renders `env_var("SOURCE_PG_USER")` / `_PASSWORD` directly. To wire in a least-privilege user, follow up by:
+
+1. Adding `SOURCE_PG_RECONCILE_USER` / `SOURCE_PG_RECONCILE_PASSWORD` to `.env.example` and the dbt `run.sh` env passthrough.
+2. Switching the generic test in `examples/olmis-analytics-core/dbt/tests/generic/reconcile_with_source.sql` to read the reconcile vars with fallback to the existing `SOURCE_PG_*` vars.
 
 **Reporting stack `.env` configuration:**
 

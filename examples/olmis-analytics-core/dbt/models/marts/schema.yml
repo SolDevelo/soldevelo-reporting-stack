@@ -5,6 +5,14 @@ models:
     description: >
       Enriched facility directory with geographic zone hierarchy.
       BI contract: dashboards should query this mart, not raw tables.
+    data_tests:
+      - reconcile_with_source:
+          arguments:
+            source_table: referencedata.facilities
+            source_pk: id
+            target_pk: facility_id
+          config:
+            tags: [reconcile]
     columns:
       - name: facility_id
         description: Facility UUID
@@ -22,6 +30,14 @@ models:
     description: >
       Requisitions enriched with facility, program, and geographic zone names.
       BI contract: dashboards should query this mart, not raw tables.
+    data_tests:
+      - reconcile_with_source:
+          arguments:
+            source_table: requisition.requisitions
+            source_pk: id
+            target_pk: requisition_id
+          config:
+            tags: [reconcile]
     columns:
       - name: requisition_id
         description: Requisition UUID

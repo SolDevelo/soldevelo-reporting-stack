@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup recover recover-slot bootstrap-export bootstrap-import verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh snapshot-tables superset-import package-fetch package-validate
+.PHONY: up down ps logs restart reset build setup recover recover-slot bootstrap-export bootstrap-import reconcile verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh snapshot-tables superset-import package-fetch package-validate
 
 up: ## Start all services
 	@docker network inspect reporting-shared > /dev/null 2>&1 || \
@@ -40,6 +40,9 @@ bootstrap-export: ## Export source PostgreSQL tables to NDJSON for bulk import. 
 
 bootstrap-import: ## Import a bootstrap export into ClickHouse raw. INPUT_DIR defaults to .bootstrap/latest.
 	@bash scripts/bootstrap/import.sh
+
+reconcile: ## Run cross-system reconciliation tests (PG source vs ClickHouse curated marts).
+	@bash scripts/dbt/run.sh test --select tag:reconcile
 
 verify-services: ## Verify platform services are healthy (Kafka, Connect, Apicurio, Kafka UI, ClickHouse)
 	@bash scripts/verify/services.sh

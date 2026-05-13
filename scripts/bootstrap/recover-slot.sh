@@ -298,15 +298,28 @@ bash "$REPO_ROOT/scripts/verify/ingestion.sh" || {
 echo ""
 
 # -----------------------------------------------------------------------------
-# 8. dbt build (optional)
+# 8. dbt build + reconciliation gate (optional)
 # -----------------------------------------------------------------------------
+RECONCILE_EXIT=0
 if [ "$SKIP_DBT" = "1" ]; then
-  echo "Step 8/8 — skipping dbt build (SKIP_DBT=1)"
+  echo "Step 8/8 — skipping dbt build + reconciliation (SKIP_DBT=1)"
 else
   echo "Step 8/8 — rebuilding dbt models..."
   bash "$REPO_ROOT/scripts/dbt/build.sh" || {
     echo "WARNING: dbt build reported issues — review output above" >&2
   }
+
+  echo ""
+  echo "Running reconciliation tests (source PG vs curated marts)..."
+  if bash "$REPO_ROOT/scripts/dbt/run.sh" test --select tag:reconcile; then
+    echo "  Reconciliation passed ✓"
+  else
+    RECONCILE_EXIT=2
+    echo "WARNING: reconciliation reported divergences — recovery procedure" >&2
+    echo "         succeeded but the data does not match source row-for-row." >&2
+    echo "         Snapshot may still be in progress, or some rows were missed." >&2
+    echo "         Re-run 'make reconcile' after a few minutes to confirm." >&2
+  fi
 fi
 
 echo ""
@@ -317,3 +330,10 @@ run_psql "SELECT slot_name, plugin, slot_type, wal_status, active, confirmed_flu
 echo ""
 echo "If large tables are still snapshotting, the connector will continue in"
 echo "the background. Watch progress with: make logs SVC=kafka-connect"
+
+# Exit codes:
+#   0 — recovery procedure succeeded and reconciliation found no divergence
+#   2 — recovery procedure succeeded but reconciliation reported divergence
+#       (advisory: re-run 'make reconcile' after CDC catches up; not a
+#        procedural failure, but lets CI/automation distinguish the two cases)
+exit "$RECONCILE_EXIT"

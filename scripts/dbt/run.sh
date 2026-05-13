@@ -137,6 +137,14 @@ DOCKER_ARGS=(
   -e "CLICKHOUSE_PORT=${CLICKHOUSE_PORT}"
   -e "CLICKHOUSE_USER=${CLICKHOUSE_USER}"
   -e "CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}"
+  # Source PG credentials for cross-system reconciliation tests
+  # (reconcile_with_source generic test renders ClickHouse's postgresql()
+  # table function with these values to read the live source state).
+  -e "SOURCE_PG_HOST=${SOURCE_PG_HOST:-}"
+  -e "SOURCE_PG_PORT=${SOURCE_PG_PORT:-5432}"
+  -e "SOURCE_PG_DB=${SOURCE_PG_DB:-}"
+  -e "SOURCE_PG_USER=${SOURCE_PG_USER:-}"
+  -e "SOURCE_PG_PASSWORD=${SOURCE_PG_PASSWORD:-}"
 )
 
 # In local mode, mount package directories into the container.

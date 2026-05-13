@@ -28,7 +28,8 @@
     "decimal.handling.mode": "double",
     "time.precision.mode": "connect",
     "tombstones.on.delete": "true",
-    "snapshot.mode": "initial",
+    "_comment.snapshot_mode": "when_needed behaves like 'initial' when offsets are valid, but also runs a fresh snapshot when stored offsets point to an LSN no longer in WAL (e.g., after slot invalidation or stale connect-offsets that survived a connector delete). This makes recovery paths robust without requiring the script to fight Kafka Connect's offset persistence.",
+    "snapshot.mode": "when_needed",
 
     "_comment.signal": "Source signal channel: Debezium reads rows from public.debezium_signal to trigger ad-hoc actions like incremental snapshots (see scripts/connect/snapshot-tables.sh). The signal table must be in the publication AND in table.include.list — register-connector.sh appends it automatically so users only configure SOURCE_PG_TABLE_ALLOWLIST. The value for signal.data.collection uses Debezium's schema.table form for the PostgreSQL connector (no database prefix).",
     "signal.enabled.channels": "source",

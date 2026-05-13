@@ -1,7 +1,7 @@
 COMPOSE_DIR := compose
 COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
 
-.PHONY: up down ps logs restart reset build setup recover verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh snapshot-tables superset-import package-fetch package-validate
+.PHONY: up down ps logs restart reset build setup recover recover-slot verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh snapshot-tables superset-import package-fetch package-validate
 
 up: ## Start all services
 	@docker network inspect reporting-shared > /dev/null 2>&1 || \
@@ -31,6 +31,9 @@ setup: ## Configure platform: register connector + init ClickHouse + verify
 
 recover: ## Restore a broken pipeline: verify services, re-register connector, restart failed tasks, verify CDC + ingestion
 	@bash scripts/recover.sh
+
+recover-slot: ## Recover from an invalidated replication slot: drop slot, re-create, full re-snapshot. Use FORCE=1 for non-interactive.
+	@bash scripts/bootstrap/recover-slot.sh
 
 verify-services: ## Verify platform services are healthy (Kafka, Connect, Apicurio, Kafka UI, ClickHouse)
 	@bash scripts/verify/services.sh

@@ -22,6 +22,13 @@ CONNECT_PORT="${CONNECT_PORT:-8083}"
 CONNECT_URL="${CONNECT_URL:-http://localhost:${CONNECT_PORT}}"
 ANALYTICS_CORE_PATH="${ANALYTICS_CORE_PATH:-examples/olmis-analytics-core}"
 
+# Default to when_needed (robust under stale Connect-side offsets). Override
+# to no_data for initial-load workflows that bootstrap data via
+# scripts/bootstrap/import.sh — Debezium then records the LSN baseline only,
+# without re-snapshotting tables.
+DEBEZIUM_SNAPSHOT_MODE="${DEBEZIUM_SNAPSHOT_MODE:-when_needed}"
+export DEBEZIUM_SNAPSHOT_MODE
+
 # Resolve connector template from analytics-core package
 # Look for the first .json file in the package's connect/ directory
 if [[ "$ANALYTICS_CORE_PATH" = /* ]]; then
@@ -167,7 +174,7 @@ preflight_publication_membership
 
 # Substitute only the known connector env vars (prevents mangling passwords
 # or values containing $ signs)
-ENVSUBST_VARS='${SOURCE_PG_HOST} ${SOURCE_PG_PORT} ${SOURCE_PG_DB} ${SOURCE_PG_USER} ${SOURCE_PG_PASSWORD} ${DEBEZIUM_TOPIC_PREFIX} ${SOURCE_PG_SLOT_NAME} ${SOURCE_PG_PUBLICATION} ${SOURCE_PG_TABLE_ALLOWLIST}'
+ENVSUBST_VARS='${SOURCE_PG_HOST} ${SOURCE_PG_PORT} ${SOURCE_PG_DB} ${SOURCE_PG_USER} ${SOURCE_PG_PASSWORD} ${DEBEZIUM_TOPIC_PREFIX} ${SOURCE_PG_SLOT_NAME} ${SOURCE_PG_PUBLICATION} ${SOURCE_PG_TABLE_ALLOWLIST} ${DEBEZIUM_SNAPSHOT_MODE}'
 RENDERED=$(envsubst "$ENVSUBST_VARS" < "$TEMPLATE")
 
 # Extract connector name from the rendered JSON

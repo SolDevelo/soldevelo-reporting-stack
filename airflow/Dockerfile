@@ -6,4 +6,6 @@ COPY --from=docker:29.4.1-cli /usr/local/bin/docker /usr/local/bin/docker
 USER airflow
 
 # Pin the standard provider (BashOperator / ShortCircuitOperator live here in 3.x)
-RUN pip install --no-cache-dir apache-airflow-providers-standard==1.12.3
+# --progress-bar off: pip's rich progress bar starts a background thread
+# (clone3) that the old-host seccomp profile rejects at build time.
+RUN pip install --no-cache-dir --progress-bar off apache-airflow-providers-standard==1.12.3

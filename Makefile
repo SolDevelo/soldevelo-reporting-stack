@@ -1,5 +1,9 @@
 COMPOSE_DIR := compose
-COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
+# Optional extra compose overlay, appended as a second -f. Set COMPOSE_OVERLAY
+# (env or make var) to layer adopter/host-specific config on top of the base
+# file — e.g. compose/docker-compose.seccomp-unconfined.yml for hosts with an
+# outdated Docker/seccomp. Unset = base file only (unchanged behaviour).
+COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml $(if $(COMPOSE_OVERLAY),-f $(COMPOSE_OVERLAY))
 
 .PHONY: up down ps logs restart reset build setup recover recover-slot bootstrap-export bootstrap-import reconcile verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh snapshot-tables superset-import package-fetch package-validate
 

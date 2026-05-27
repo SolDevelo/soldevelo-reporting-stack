@@ -134,6 +134,18 @@ DOCKER_ARGS=(
   --rm
   --network "${COMPOSE_PROJECT}_reporting"
   -e "CLICKHOUSE_HOST=${CLICKHOUSE_HOST}"
+)
+
+# Optional seccomp profile for the dbt container. The dbt run is a bare
+# `docker run` (not a compose service), so a compose security_opt override
+# does not reach it. On hosts with an outdated Docker/seccomp that rejects the
+# clone3 syscall (EPERM), dbt's worker threads crash; set DBT_DOCKER_SECCOMP=
+# unconfined in .env there. Unset = the daemon default profile (unchanged).
+if [ -n "${DBT_DOCKER_SECCOMP:-}" ]; then
+  DOCKER_ARGS+=(--security-opt "seccomp=${DBT_DOCKER_SECCOMP}")
+fi
+
+DOCKER_ARGS+=(
   -e "CLICKHOUSE_PORT=${CLICKHOUSE_PORT}"
   -e "CLICKHOUSE_USER=${CLICKHOUSE_USER}"
   -e "CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}"

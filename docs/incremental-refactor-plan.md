@@ -274,11 +274,11 @@ Blast radius is the dbt layer + the `setup.sh` script + the dbt profile/Dockerfi
 ## Tracker
 
 - [x] Phase A — audit, fill in the per-mart table above (2026-05-28)
-- [ ] Phase B — staging incremental + `_cdc_ts` (design refined to handle current-state reconstruction)
-- [ ] Phase C — refactor big marts: `mart_stock_status`, `mart_adjustments`
-- [ ] Phase D — split `make setup` / `make initial-dbt-build`
-- [ ] Phase E — `threads: 1`, query memory cap, DAG hardening
-- [ ] Phase F — verify on Malawi dev, update docs
+- [x] Phase B — staging incremental + `_cdc_ts` (2026-05-28)
+- [x] Phase C — refactor `mart_stock_status` + `mart_adjustments` (2026-05-28)
+- [x] Phase D — split `make setup` / `make initial-dbt-build` (2026-05-28)
+- [x] Phase E — `threads: 1`, query memory cap, DAG hardening (2026-05-28)
+- [ ] Phase F — verify on Malawi dev, update docs/architecture.md
 
 ## Notes for whoever picks this up
 

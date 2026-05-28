@@ -19,7 +19,12 @@ The reporting stack splits "platform setup" (light, idempotent) from "data build
 
 ### Initial build sizing
 
-`make initial-dbt-build` is the heaviest dbt operation. On the Malawi dev instance (`r5.xlarge`, 4 vCPU / 32 GiB) the `mart_stock_status` full-refresh dominates: it scans every event in `stg_requisition_line_items` (~28.8 M events when last measured) and joins to every dimension. Plan accordingly: if you hit memory pressure, build in pieces (`dbt run --select stg_*` first, then individual marts) or temporarily upsize the instance. Once it completes successfully, routine refreshes are cheap — the heavy step is amortized across all future hourly runs.
+`make initial-dbt-build` is the heaviest dbt operation. On the Malawi dev instance (`r5.xlarge`, 4 vCPU / 32 GiB) the `mart_stock_status` full-refresh dominates: it scans every event in `stg_requisition_line_items` (~28.8 M events when last measured) and joins to every dimension. Two settings keep the build safe:
+
+- `threads: 1` is pinned in `dbt/profiles.yml` so concurrent model builds don't stack peak memory (and to dodge a `SESSION_IS_LOCKED` race in dbt-clickhouse 1.10). Incremental models are individually small, so the wall-clock penalty is negligible.
+- The dbt profile passes `max_memory_usage` (default 20 GiB) as a `custom_setting`, so each query has its own cap. A misbehaving query fails fast with `MEMORY_LIMIT_EXCEEDED` instead of pushing ClickHouse to self-terminate (which would take the whole server down). Override with the `CLICKHOUSE_MAX_MEMORY_USAGE` env var (bytes) on hosts with more or less RAM.
+
+If you still hit memory pressure, build in pieces — `dbt run --select stg_*` first, then individual marts — or temporarily upsize the instance. Once the initial build completes successfully, routine refreshes are cheap; the heavy step is amortized across all future hourly runs.
 
 ## Verifying the pipeline is healthy
 

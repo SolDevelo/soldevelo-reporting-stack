@@ -106,8 +106,16 @@ def check_freshness(**kwargs):
 
 default_args = {
     "owner": "reporting-platform",
-    "retries": 1,
+    # Retry transient ClickHouse / Kafka Connect blips. Exponential
+    # backoff (5m → 10m → 20m) gives the underlying service time to
+    # recover (e.g. CDC consumer lag clearing, a ClickHouse merge
+    # finishing) before each retry attempt. max_retry_delay caps the
+    # backoff so a long-running incident still retries within the
+    # hourly window.
+    "retries": 3,
     "retry_delay": timedelta(minutes=5),
+    "retry_exponential_backoff": True,
+    "max_retry_delay": timedelta(minutes=20),
 }
 
 with DAG(
@@ -118,7 +126,14 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     catchup=False,
     is_paused_upon_creation=False,
+    # max_active_runs=1 ensures a slow run doesn't get a sibling started
+    # by the next hourly trigger — two concurrent dbt builds against the
+    # same ClickHouse session pool deadlock on the 1.10 adapter.
     max_active_runs=1,
+    # dagrun_timeout caps a single run so the next hourly trigger isn't
+    # starved by a hung previous run. Tuned generously for the initial
+    # build window; routine incremental runs finish in seconds.
+    dagrun_timeout=timedelta(hours=3),
     tags=["reporting-platform", "dbt"],
 ) as dag:
 

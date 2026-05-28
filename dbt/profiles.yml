@@ -8,5 +8,20 @@ reporting_platform:
       user: "{{ env_var('CLICKHOUSE_USER', 'default') }}"
       password: "{{ env_var('CLICKHOUSE_PASSWORD', 'changeme') }}"
       schema: curated
-      threads: 2
+      # threads=1 sidesteps the session_id race in dbt-clickhouse 1.10
+      # (multiple workers share a ClickHouse session and trip
+      # SESSION_IS_LOCKED on overlapping DDL). Incremental models are
+      # individually small, so the wall-clock penalty is negligible.
+      # Revisit when the adapter has a confirmed fix.
+      threads: 1
       use_lw_deletes: true
+      custom_settings:
+        # Cap each query's memory. When a single query approaches
+        # max_server_memory_usage (defaults to ~90% of host RAM),
+        # ClickHouse self-terminates to avoid kernel OOM — that takes
+        # down the entire server and every dashboard, instead of just
+        # failing the offending query. A per-query cap turns "server
+        # crash" into a visible MEMORY_LIMIT_EXCEEDED on the bad query.
+        # Default 20 GiB suits the 32 GiB Malawi dev box. Override with
+        # CLICKHOUSE_MAX_MEMORY_USAGE (bytes) for other host sizes.
+        max_memory_usage: "{{ env_var('CLICKHOUSE_MAX_MEMORY_USAGE', '21474836480') }}"

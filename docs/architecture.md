@@ -115,10 +115,18 @@ dbt runs via Docker (`dbt/Dockerfile`) with dbt-core + dbt-clickhouse adapter. T
 
 | Layer | Schema | Materialization | Purpose |
 |---|---|---|---|
-| Staging (`stg_*`) | `curated` | View | Current-state reconstruction from raw CDC events via `row_number()` + JSON extraction |
-| Marts (`mart_*`) | `curated` | MergeTree table | BI-ready datasets joining staging views — the stable contract for dashboards |
+| Staging — small dimensions (`stg_facilities`, `stg_programs`, `stg_geographic_zones`, etc.) | `curated` | View | Current-state reconstruction from raw CDC events via `row_number()` + JSON extraction. Cheap to recompute on every query because the underlying raw event tables are small. |
+| Staging — fact-shaped (`stg_requisitions`, `stg_requisition_line_items`, `stg_status_changes`, `stg_stock_adjustments`, `stg_stock_adjustment_reasons`) | `curated` | Incremental MergeTree (`delete_insert` by primary key) | Same current-state semantics, but materialized so the JSON parsing + dedupe runs once per dbt cycle instead of on every mart query. Each row carries an internal `_cdc_ts` (watermark) used by incremental marts and the next run of the staging model itself. |
+| Marts — dimensions and small aggregates (`mart_facility_directory`, `mart_requisition_summary`, `mart_reporting_status`, `mart_non_reporting_facilities`, `mart_logistics_summary`, `mart_malawi_*`) | `curated` | MergeTree table (`materialized='table'`) | Full rebuild each refresh. Cheap because their largest scan is below ~1.2 M rows. |
+| Marts — big fact aggregates (`mart_stock_status`, `mart_adjustments`) | `curated` | Incremental MergeTree (`delete_insert` by primary key) | Watermark off the fact-side `stg_*._cdc_ts`. Routine refreshes only process line items whose latest CDC event arrived since the previous run. |
 
-Staging views handle CDC semantics: for each primary key, they select the latest event by `ts_ms` and `_ingested_at`, excluding deletes (`op != 'd'`). This deterministic logic correctly handles initial snapshots, incremental changes, and replay scenarios.
+Staging models handle CDC semantics: for each primary key, they select the latest event by `ts_ms` and `_ingested_at`, excluding deletes (`op != 'd'`). This deterministic logic correctly handles initial snapshots, incremental changes, and replay scenarios.
+
+**Why the materialization mix.** Pure `table` was the original choice — simple and correctness-free re late-arriving data. It became the structural blocker on real-scale data (`mart_stock_status` joined 28 M+ line items and approached ClickHouse's host memory limit on every refresh). Pure `incremental` everywhere would trade that for new bug surfaces (late-arriving data, source deletes, watermark drift) on marts whose full rebuild is already cheap. The mix above promotes only the models whose full rebuild is too expensive, leaving the rest as the simpler `table`. Adopters with bigger datasets follow the same rule: stay as `table` until measurement says otherwise. See `docs/incremental-refactor-plan.md` for the per-mart audit and decision rationale.
+
+**Source-delete handling.** Incremental staging and incremental marts use `delete_insert` with the natural primary key. Updates and inserts upsert cleanly. Hard-deletes from source leave the latest CDC event as `op='d'`, which is filtered out of the SELECT — so the stale row remains in the materialized table. In OpenLMIS this is extremely rare for the affected tables. Reconcile via `dbt run --full-refresh` when source deletes are suspected.
+
+**Dimension drift.** Incremental marts watermark on their fact-side `stg_*._cdc_ts`. Changes to facility names, program names, period dates, etc. don't propagate to existing mart rows on an incremental run — only on a `--full-refresh`. Operator should `--full-refresh` periodically (e.g. monthly) to reconcile dimension drift, or whenever a known dimension change needs to surface in dashboards immediately.
 
 **Error handling:** Kafka Engine tables use `kafka_handle_error_mode = 'stream'`. Malformed messages are filtered out by the Materialized View (`WHERE length(_error) = 0`) and silently skipped — there is no DLQ. See [development.md](development.md#error-handling) for diagnostics.
 
@@ -159,5 +167,8 @@ Before running dbt, Airflow checks whether raw data is actually fresh (new CDC e
 To refresh marts immediately after a known change (e.g., after creating a requisition), trigger the DAG manually from the Airflow UI or run:
 
 ```bash
-make dbt-build
+make dbt-build              # incremental refresh — cheap, picks up the delta since the last run
+make initial-dbt-build      # one-time full refresh — heavy, only after a fresh deploy or to reconcile dimension/3-year-window drift
 ```
+
+See [operations.md](operations.md#deployment-lifecycle) for the full lifecycle (fresh deploy, redeploy/restart, routine refresh, full reconcile) and when each command is the right one.

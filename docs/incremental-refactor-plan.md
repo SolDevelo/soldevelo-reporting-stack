@@ -278,7 +278,24 @@ Blast radius is the dbt layer + the `setup.sh` script + the dbt profile/Dockerfi
 - [x] Phase C — refactor `mart_stock_status` + `mart_adjustments` (2026-05-28)
 - [x] Phase D — split `make setup` / `make initial-dbt-build` (2026-05-28)
 - [x] Phase E — `threads: 1`, query memory cap, DAG hardening (2026-05-28)
-- [ ] Phase F — verify on Malawi dev, update docs/architecture.md
+- [x] Phase F — verify on Malawi dev, update `docs/architecture.md` (2026-05-28)
+
+## Phase F results (lmis-dev, 2026-05-28)
+
+Real-data validation on `lmis-dev.health.gov.mw` (r5.xlarge, 30 GiB host RAM, 19 GiB available alongside OLMIS). Raw CDC volume at test time: 57.5 M `requisition_line_items`, 27.5 M `stock_adjustment_reasons`, 7.0 M `status_changes`, 4.9 M `stock_adjustments`, 2.4 M `requisitions` — roughly 2× the volumes documented when the plan was written.
+
+| Acceptance criterion | Result |
+| --- | --- |
+| `make setup` on an already-deployed stack does no dbt work and finishes in under a minute | **PASS** — 1m09s, no dbt build. Re-ran after the full mart rebuild: still 1m09s, marts unchanged. |
+| A fresh `make initial-dbt-build` on the Malawi dev box completes without ClickHouse self-terminating, using <80% of available RAM | **PASS** — `stg_requisition_line_items` rebuild peaked at 16.13 GiB (under the 20 GiB cap, ~85 % of available RAM), completed in 11m39s. Without the `max_bytes_before_external_sort` spill setting added during Phase F, it hit the 20 GiB cap and failed safely — ClickHouse stayed up; before Phase E this would have self-terminated. |
+| Two consecutive `dbt run`s after the initial build process only the delta | **PASS** — first full incremental run (5 staging + 7 table marts + 2 incremental marts): 23.8s. Second consecutive run: 33.8s including docker/dbt startup overhead. |
+| The Airflow `platform_refresh` DAG completes hourly on dev without errors for at least 48 hours | _Pending_ — Phase E hardened the DAG (retries+backoff, dagrun_timeout, max_active_runs=1); 48 h soak observation is a follow-up. |
+| A Jenkins redeploy (KEEP=keep) succeeds end-to-end with no mart damage and no human intervention | _Pending_ — equivalent local re-run (`make setup` after the build) confirmed dbt-free + idempotent. Real Jenkins run on operator's schedule. |
+| `docs/operations.md` and `docs/architecture.md` reflect the new lifecycle | **PASS** — both updated in this branch. |
+
+**Phase F also surfaced a Phase B/E tuning gap:** the initial `--full-refresh` of `stg_requisition_line_items` (window function over 57.5 M raw events) needed external sort spill on this host. Added `max_bytes_before_external_sort` and `max_bytes_before_external_group_by` (default 8 GiB) to the dbt profile's `custom_settings`, env-overridable for hosts with more RAM. The routine incremental path doesn't need spill (the `touched_ids` CTE keeps the cohort small).
+
+**Phase F also surfaced a data finding** worth flagging: the rebuilt `mart_stock_status` has 9.28 M rows, not the ~3.6 k that the prior table-materialized run captured. The math checks out (186 k requisitions in the 3-year window × ~50 line items each), and the incremental staging row count exactly matches the legacy view-based logic on the same raw events. The earlier 3.6 k was either a much older snapshot or a stale measurement. Dashboards now reflect the full corrected dataset.
 
 ## Notes for whoever picks this up
 

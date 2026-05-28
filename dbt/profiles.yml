@@ -25,3 +25,14 @@ reporting_platform:
         # Default 20 GiB suits the 32 GiB Malawi dev box. Override with
         # CLICKHOUSE_MAX_MEMORY_USAGE (bytes) for other host sizes.
         max_memory_usage: "{{ env_var('CLICKHOUSE_MAX_MEMORY_USAGE', '21474836480') }}"
+        # Force GROUP BY / ORDER BY to spill to disk when intermediate
+        # state exceeds 8 GiB. Without this, the staging full-refresh
+        # builds (notably stg_requisition_line_items, scanning ~57 M raw
+        # events) trip the max_memory_usage cap because the window
+        # function holds the whole sort cohort in memory. With spill
+        # enabled, peak memory stays well below the cap at the cost of
+        # some disk I/O during the heavy initial build. Cheap on the
+        # routine incremental path (touched_ids CTE narrows the cohort
+        # to a small slice, so nothing spills).
+        max_bytes_before_external_group_by: "{{ env_var('CLICKHOUSE_EXTERNAL_GROUP_BY_BYTES', '8589934592') }}"
+        max_bytes_before_external_sort: "{{ env_var('CLICKHOUSE_EXTERNAL_SORT_BYTES', '8589934592') }}"

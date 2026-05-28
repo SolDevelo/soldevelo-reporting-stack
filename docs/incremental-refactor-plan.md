@@ -54,9 +54,9 @@ Superset
 
 ## Phases
 
-### Phase A — Audit (~½ day)
+### Phase A — Audit (~½ day) — **DONE 2026-05-28**
 
-Walk every model in `examples/olmis-analytics-core/dbt/models/marts/` and `examples/olmis-analytics-malawi/dbt/models/marts/`. For each, classify:
+Walked every model in `examples/olmis-analytics-core/dbt/models/marts/` and `examples/olmis-analytics-malawi/dbt/models/marts/`. Classified by:
 
 | Question | Answer determines |
 | --- | --- |
@@ -65,31 +65,108 @@ Walk every model in `examples/olmis-analytics-core/dbt/models/marts/` and `examp
 | Are source deletes meaningful to the dashboards? | If yes and frequent, needs explicit delete handling. |
 | Is it a dimension (mirrors a source table) or an aggregate? | Dimensions stay `table`. |
 
-**Deliverable:** a table in this doc, per mart × decision × watermark column × notes. Strong default for any mart whose largest scan is <1 M rows: stay as `table`.
+Default for any mart whose largest scan is <1 M rows: stay as `table`.
 
-Suspected outcomes (to be verified by the audit):
+**Findings — per mart:**
 
-| Mart | Materialization | Reason |
-| --- | --- | --- |
-| `mart_facility_directory` | `table` | Dimension, mirrors `referencedata.facilities` (1666 rows). |
-| `mart_requisition_summary` | `table` (probably) or `incremental` if scan cost surprises us | 1.2 M source rows; full rebuild may already be acceptable. |
-| `mart_stock_status` | **incremental** | Scans 28.8 M `requisition_line_items`. Confirmed memory bomb. |
-| `mart_adjustments` | **incremental** | Will scan 13.8 M `stock_adjustment_reasons`. |
-| `mart_reporting_status` | `table` or **incremental** | Decide after audit (3.5 M `status_changes`). |
-| `mart_non_reporting_facilities` | `table` | Derived from `mart_reporting_status`; small downstream. |
-| `mart_logistics_summary` | `table` | Already small (49 rows). |
-| `mart_malawi_*` | `table` | Read from already-built core marts; cheap. |
+| Mart | Largest scan | Unique key | Deletes matter | Shape | Decision | Watermark | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `mart_facility_directory` | `stg_facilities` (~1.7 k) | `facility_id` | rarely | dimension | **table** | — | Pure facility-dimension join. Full rebuild is free. |
+| `mart_requisition_summary` | `stg_requisitions` (~1.2 M) | `requisition_id` | rarely | per-row enrichment | **table** | (`_cdc_ts` available if promoted) | 1.2 M is below the memory wall today; full rebuild stays cheap. Promote later only if scan cost becomes a problem. |
+| `mart_stock_status` | `stg_requisition_line_items` (~28.8 M) | `line_item_id` | rarely (requisition line edits, not deletes) | per-row enrichment | **incremental** | `_cdc_ts` from `stg_requisition_line_items` | The confirmed memory bomb. Output is small (~3.6 k after 3-yr filter) but the upstream scan is what kills ClickHouse. |
+| `mart_adjustments` | `stg_stock_adjustments` (scales with line items) + `stg_stock_adjustment_reasons` (13.8 M raw, deduped to ~global N) | `adjustment_id` | rarely | per-row enrichment | **incremental** | `_cdc_ts` from `stg_stock_adjustments` | Reasons dedupe to a tiny set (one row per global `reason_id`). The cost is the adjustments scan; watermark on adjustments side. |
+| `mart_reporting_status` | `stg_status_changes` (~3.5 M) joined to `stg_requisitions` (~1.2 M) plus a cross-product over expected (facility × program × period) | composite (facility_id, program_id, period_id) | no | aggregate / cross-product | **table** | — | Output is cross-product of expected reporting obligations; the upstream scans aren't crippling and the per-mart row count is the bottleneck. Adding a new requisition can change rows at the (facility, program, period) granularity, which is awkward for delta semantics. Keep as `table`; promote later only if upstream scan cost actually starts to hurt. |
+| `mart_non_reporting_facilities` | same as `mart_reporting_status` (independent recompute) | composite (facility_id, program_id, period_id) | no | aggregate (filtered) | **table** | — | Same reasoning as `mart_reporting_status`. Could later refactor to derive from `mart_reporting_status` to save a duplicate scan — out of scope for this refactor. |
+| `mart_logistics_summary` | `mart_stock_status` (curated, small) | derived | no | aggregate | **table** | — | Top-5 products by consumption — 49 rows. Cheap and small. |
+| `mart_malawi_requisition_by_region` | `mart_requisition_summary`, `mart_facility_directory` (both curated) | composite (region, program, status) | no | aggregate | **table** | — | Reads from already-built core marts. Cheap. |
+| `mart_malawi_stock_status` | `mart_stock_status` joined to seed (114 rows) | `line_item_id` | no | per-row filter | **table** | — | Reads from already-built core mart. Cheap. |
 
-### Phase B — Staging watermark (~½ day)
+**Promotions** (table → incremental): `mart_stock_status`, `mart_adjustments`. Everything else stays as `table`.
 
-Convert `stg_*` from `view` to `materialized='incremental'` with `incremental_strategy='append'`. Each `stg_X` carries:
-- All projected columns from `raw.events_*`
-- `_cdc_ts` (from Debezium `ts_ms`)
-- `_cdc_op` (Debezium `op`: `r`/`c`/`u`/`d`)
+**Audit finding that changes Phase B's design — staging is current-state, not append-only.**
 
-`is_incremental()` filter: `where ts_ms > (select max(ts_ms) from {{ this }})`.
+Every `stg_*` model in `olmis-analytics-core/dbt/models/staging/` does **current-state reconstruction**:
 
-Effect: mart queries read from materialized staging tables, not raw, and have a stable watermark to filter on. Staging tables lag raw by at most one cycle (acceptable; dashboards aren't real-time).
+```sql
+row_number() over (partition by id order by ts_ms desc, _ingested_at desc) as _rn
+... where _rn = 1 and op != 'd'
+```
+
+i.e. each row in staging is the latest non-deleted version of one source row. This is the right shape for marts (which need facility / requisition / line-item dimensions in their current state), but it means Phase B's "incremental + append" doesn't apply verbatim. A pure append would emit a second row per id every time the source updates; the `row_number()` window only sees rows in the current batch, so the materialized output would no longer be one-row-per-id.
+
+Refined Phase B design is documented under "Phase B" below.
+
+### Phase B — Staging watermark (~½–1 day)
+
+Convert `stg_*` from `view` to `materialized='incremental'` with `incremental_strategy='delete+insert'`. Each `stg_X` continues to expose exactly one row per source id (current-state semantics, unchanged), and additionally carries:
+- `_cdc_ts_ms` — the `ts_ms` of the latest event for this id (the row that won the `row_number()` race). Used as the watermark on subsequent runs.
+- `_cdc_ts` — `toDateTime64(_cdc_ts_ms / 1000, 3)`. Exposed for downstream marts to filter on.
+- `_cdc_op` — Debezium `op` of the winning row (`r`/`c`/`u`).
+
+Pattern (illustrative — adapt the partition keys for composite-PK tables):
+
+```sql
+{{ config(
+    materialized='incremental',
+    incremental_strategy='delete+insert',
+    unique_key='id',
+    engine='MergeTree()',
+    order_by='id'
+) }}
+
+with touched_ids as (
+  -- ids with at least one new event since the last run
+  select distinct coalesce(
+    nullIf(JSONExtractString(after,  'id'), ''),
+    nullIf(JSONExtractString(before, 'id'), '')
+  ) as id
+  from raw.events_<topic>
+  where coalesce(
+    nullIf(JSONExtractString(after,  'id'), ''),
+    nullIf(JSONExtractString(before, 'id'), '')
+  ) != ''
+  {% if is_incremental() %}
+    and ts_ms > (select coalesce(max(_cdc_ts_ms), 0) from {{ this }})
+  {% endif %}
+),
+ranked as (
+  -- re-rank across full raw history for the touched ids only
+  select e.*,
+         row_number() over (
+           partition by coalesce(
+             nullIf(JSONExtractString(e.after,  'id'), ''),
+             nullIf(JSONExtractString(e.before, 'id'), '')
+           )
+           order by e.ts_ms desc, e._ingested_at desc
+         ) as _rn
+  from raw.events_<topic> e
+  inner join touched_ids t
+    on coalesce(
+         nullIf(JSONExtractString(e.after,  'id'), ''),
+         nullIf(JSONExtractString(e.before, 'id'), '')
+       ) = t.id
+)
+select
+  ... existing column projections ...,
+  ts_ms                                  as _cdc_ts_ms,
+  toDateTime64(ts_ms / 1000, 3)          as _cdc_ts,
+  op                                     as _cdc_op
+from ranked
+where _rn = 1
+  and op != 'd'
+```
+
+Effect: a `dbt run` scans raw events twice — once to find `touched_ids` (cheap; `ts_ms` is in the raw MergeTree `ORDER BY`, so `ts_ms > watermark` is a range scan), then once to rank the full history of those ids only. On a quiet hour (few new events) this is near-zero work; on a backfill it converges to the full-history rank.
+
+`delete+insert` with `unique_key='id'` then upserts the re-ranked rows: rows that already existed in staging get replaced with their new current state.
+
+**Source-delete limitation (documented, not fixed in this phase).** If a row is hard-deleted in source, its latest CDC event has `op='d'` and is filtered out of the SELECT — so the stale row remains in staging. The same is true for marts. Reconcile via `dbt run --full-refresh` when source deletes are suspected. In OpenLMIS this is extremely rare for the tables involved (you don't hard-delete requisitions, line items, status changes, or stock adjustments in practice).
+
+**Composite-PK tables.** `stg_requisition_group_members` (PK: `requisition_group_id, facility_id`) and `stg_supported_programs` (PK: `facility_id, program_id`) need `unique_key` set to the composite tuple and the partition/join keys adjusted accordingly. The `touched_ids` CTE projects the composite as a single concatenated string or tuple.
+
+**`stg_stock_adjustment_reasons`.** Already does a two-stage dedupe (rank per source `id`, then `argMax` per global `reason_id`). The incremental version keeps the inner ranked layer touched-ids-driven; the outer `argMax` over `reason_id` then needs to re-aggregate over **all** rows of the inner staging — i.e. the outer dedupe is essentially a fresh `group by reason_id` over the inner table on each run. Acceptable: the inner table is tiny relative to raw events. Implementation choice: split into `stg_stock_adjustment_reasons__raw` (incremental, per-source-id) and `stg_stock_adjustment_reasons` (view, the `argMax` reduction). Detailed mechanics confirmed during Phase B implementation.
+
+Staging tables lag raw by at most one cycle (acceptable; dashboards aren't real-time).
 
 ### Phase C — Refactor the big marts (~1–2 days)
 
@@ -194,9 +271,9 @@ Blast radius is the dbt layer + the `setup.sh` script + the dbt profile/Dockerfi
 
 ## Tracker
 
-- [ ] Phase A — audit, fill in the per-mart table above
-- [ ] Phase B — staging incremental + `_cdc_ts`
-- [ ] Phase C — refactor big marts (list locked in Phase A)
+- [x] Phase A — audit, fill in the per-mart table above (2026-05-28)
+- [ ] Phase B — staging incremental + `_cdc_ts` (design refined to handle current-state reconstruction)
+- [ ] Phase C — refactor big marts: `mart_stock_status`, `mart_adjustments`
 - [ ] Phase D — split `make setup` / `make initial-dbt-build`
 - [ ] Phase E — `threads: 1`, query memory cap, DAG hardening
 - [ ] Phase F — verify on Malawi dev, update docs

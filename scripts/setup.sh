@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
-# One-shot setup: waits for services, registers CDC connector, initializes
-# ClickHouse, builds dbt curated marts, and imports Superset dashboards.
+# Platform setup: idempotent, safe-to-rerun configuration of the reporting
+# stack. Waits for services, registers the CDC connector, initializes
+# ClickHouse raw landing, and imports Superset dashboards. Verifies at the
+# end.
+#
+# This script intentionally does NOT run dbt — the initial mart build is a
+# heavy, one-time, environment-specific step that operators run explicitly
+# via `make initial-dbt-build`. Routine refreshes are handled by the
+# Airflow platform_refresh DAG (incremental, cheap). See docs/operations.md
+# for the full lifecycle.
 #
 # Run after 'make up' to complete the platform configuration.
-# Idempotent — safe to run multiple times.
 # =============================================================================
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -79,17 +86,12 @@ while [ "$ingest_elapsed" -lt "$ingest_max" ]; do
 done
 echo ""
 
-# Step 6: Build curated marts (dbt)
-echo "Building curated marts (dbt)..."
-bash "$REPO_ROOT/scripts/dbt/build.sh"
-echo ""
-
-# Step 7: Import Superset dashboards
+# Step 6: Import Superset dashboards
 echo "Importing Superset dashboards..."
 bash "$REPO_ROOT/scripts/superset/import-all.sh"
 echo ""
 
-# Step 8: Quick verification
+# Step 7: Quick verification
 echo "Verifying..."
 echo ""
 bash "$REPO_ROOT/scripts/verify/services.sh"
@@ -99,5 +101,9 @@ echo ""
 bash "$REPO_ROOT/scripts/clickhouse/verify-ingestion.sh"
 echo ""
 echo "=== Setup complete ==="
+echo ""
+echo "Next step for a fresh deployment: run 'make initial-dbt-build' once"
+echo "to build the curated marts from the full CDC history. Re-runs of"
+echo "'make setup' are safe and cheap and skip the build."
 echo ""
 echo "Dashboards: http://localhost:${SUPERSET_PORT:-8088} (credentials in .env)"

@@ -191,6 +191,18 @@ services:
       CLICKHOUSE_DB: "${CLICKHOUSE_DB:-reporting}"
       CLICKHOUSE_USER: "${CLICKHOUSE_USER:-default}"
       CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-changeme}"
+      # Redirect HOME so libpq (used by the postgresql() table function)
+      # looks for client TLS material under the clickhouse user's own home
+      # instead of /root. The official image inherits HOME=/root from the
+      # base image, but clickhouse-server runs as uid 101 which can't
+      # traverse /root (mode 0700). libpq's $HOME/.postgresql probe then
+      # returns EACCES, postgresql() falls back to no-SSL, and any RDS
+      # source rejects that (no pg_hba entry without SSL) — reconcile
+      # tests fail with POSTGRESQL_CONNECTION_FAILURE. With HOME pointed
+      # at the clickhouse user's writeable home, the probe returns ENOENT
+      # (libpq treats this as "no client cert configured, use server-cert-
+      # only SSL") and the connection succeeds.
+      HOME: /var/lib/clickhouse
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --user ${CLICKHOUSE_USER:-default} --password ${CLICKHOUSE_PASSWORD:-changeme} -q 'SELECT 1' || exit 1"]
       interval: 10s

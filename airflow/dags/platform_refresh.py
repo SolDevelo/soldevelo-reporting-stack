@@ -150,7 +150,15 @@ with DAG(
 
     test = BashOperator(
         task_id="dbt_test",
-        bash_command="bash /opt/reporting/scripts/dbt/run.sh test",
+        # Skip the cross-system reconcile tests in the hourly DAG —
+        # they compare CH curated marts against live PG source via
+        # postgresql() and diverge by construction when a mart applies
+        # a date window (e.g. mart_stock_status filters on a 3-year
+        # rolling window; the source has the full history). Run them
+        # on operator demand via `make reconcile`. The non-reconcile
+        # tests (uniqueness, not_null, accepted_values, relationships)
+        # still run here and gate the DAG.
+        bash_command="bash /opt/reporting/scripts/dbt/run.sh test --exclude tag:reconcile",
     )
 
     freshness >> build >> test

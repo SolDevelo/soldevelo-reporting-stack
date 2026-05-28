@@ -1,6 +1,8 @@
 {{
   config(
-    materialized='table',
+    materialized='incremental',
+    incremental_strategy='delete_insert',
+    unique_key='line_item_id',
     engine='MergeTree()',
     order_by='(requisition_id, line_item_id)',
     settings={'allow_nullable_key': 1}
@@ -18,6 +20,19 @@
 --                 Adequately stocked (else)
 -- Rolling 3-year window on requisition created_date.
 -- No requisition status filter (matches old view which included all statuses).
+--
+-- Incremental design:
+--   - unique_key=line_item_id, strategy=delete_insert. On each run, we
+--     pick up line items whose stg_requisition_line_items._cdc_ts is
+--     greater than the watermark already in this mart, then upsert.
+--   - Dimension drift: changes to facility names, program names, etc.
+--     are NOT picked up on incremental runs (the watermark is line-item-
+--     side). The mart reflects the dimension values that were current
+--     when each line item was last updated. Run with --full-refresh to
+--     reconcile.
+--   - 3-year-window drift: rows aging past `now() - interval 3 year`
+--     are not evicted on incremental runs. Operator should --full-refresh
+--     periodically (e.g. monthly) to reclaim the window.
 
 select
   -- line item identifiers
@@ -116,7 +131,10 @@ select
     when toDayOfMonth(r.modified_date) <= 10 then 'Before 10th'
     when toDayOfMonth(r.modified_date) <= 20 then 'Between 10th - 20th'
     else 'After 20th'
-  end                           as order_timeliness
+  end                           as order_timeliness,
+
+  -- CDC watermark: timestamp of the latest line-item event that produced this row
+  li._cdc_ts                    as _cdc_ts
 
 from {{ ref('stg_requisition_line_items') }} li
 inner join {{ ref('stg_requisitions') }} r
@@ -138,3 +156,6 @@ left join {{ ref('stg_processing_schedules') }} ps
 left join {{ ref('stg_orderables') }} o
   on li.orderable_id = o.id
 where r.created_date >= now() - interval 3 year
+{% if is_incremental() %}
+  and li._cdc_ts > (select coalesce(max(_cdc_ts), toDateTime64(0, 3)) from {{ this }})
+{% endif %}

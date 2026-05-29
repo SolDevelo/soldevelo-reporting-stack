@@ -2,7 +2,11 @@
 platform_refresh — Reporting Stack orchestration DAG.
 
 Runs on a schedule (default: hourly). Tasks:
-  1. check_freshness  — queries ClickHouse raw tables, skips if data is stale
+  1. log_cdc_health   — queries ClickHouse raw tables, emits FRESH/STALE log
+                        lines per table. Always succeeds; does NOT gate
+                        downstream. dbt itself decides whether there is work
+                        to do via _cdc_ts watermarks on incremental models,
+                        so an idle source produces cheap no-op runs.
   2. dbt_build        — runs dbt deps + build via scripts/dbt/build.sh
   3. dbt_test         — runs dbt test via scripts/dbt/test.sh
 
@@ -13,7 +17,7 @@ Environment variables (from .env via compose env_file):
   CLICKHOUSE_PASSWORD          default: changeme
   SOURCE_PG_TABLE_ALLOWLIST    required: comma-separated schema.table list
   DEBEZIUM_TOPIC_PREFIX        default: openlmis
-  FRESHNESS_MAX_AGE_MINUTES    default: 60
+  FRESHNESS_MAX_AGE_MINUTES    default: 60  (threshold for STALE warnings)
   AIRFLOW_REFRESH_SCHEDULE     default: @hourly
   REPORTING_HOST_ROOT          required when running dbt from Airflow container
 """
@@ -25,7 +29,7 @@ from base64 import b64encode
 
 from airflow.sdk import DAG
 from airflow.providers.standard.operators.bash import BashOperator
-from airflow.providers.standard.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import PythonOperator
 
 
 CLICKHOUSE_HOST = os.environ.get("CLICKHOUSE_HOST", "clickhouse")
@@ -62,17 +66,21 @@ def _get_topics():
     return topics
 
 
-def check_freshness(**kwargs):
+def log_cdc_health(**kwargs):
     """
-    Check that all raw event tables have recent data.
-    Returns True if fresh (proceed with dbt), False if stale (skip).
+    Observability-only: log the most recent _ingested_at for every raw event
+    table. Emits a FRESH / STALE line per table relative to
+    FRESHNESS_MAX_AGE_MINUTES so an operator scanning the DAG log can spot a
+    broken CDC pipeline. Does NOT short-circuit — dbt always runs, and an idle
+    source costs only the per-mart incremental no-op.
     """
     topics = _get_topics()
     if not topics:
-        print("WARNING: No topics configured, skipping freshness check")
-        return True
+        print("WARNING: No topics configured; cannot assess CDC health")
+        return
 
     threshold = datetime.now(timezone.utc) - timedelta(minutes=FRESHNESS_MAX_AGE)
+    stale = []
 
     for safe_name in topics:
         table = f"raw.events_{safe_name}"
@@ -81,27 +89,32 @@ def check_freshness(**kwargs):
         )
         if not result or result == "1970-01-01 00:00:00.000":
             print(f"STALE: {table} has no data")
-            return False
+            stale.append(table)
+            continue
 
-        # Parse ClickHouse DateTime64 format
         try:
             max_ts = datetime.strptime(result, "%Y-%m-%d %H:%M:%S.%f")
             max_ts = max_ts.replace(tzinfo=timezone.utc)
         except ValueError:
             print(f"WARNING: Could not parse timestamp '{result}' from {table}")
-            return True  # don't block on parse errors
+            continue
 
         if max_ts < threshold:
             print(
                 f"STALE: {table} last ingested at {result}, "
                 f"threshold is {threshold.isoformat()}"
             )
-            return False
+            stale.append(table)
+        else:
+            print(f"FRESH: {table} last ingested at {result}")
 
-        print(f"FRESH: {table} last ingested at {result}")
-
-    print("All tables are fresh")
-    return True
+    if stale:
+        print(
+            f"WARNING: {len(stale)} of {len(topics)} tables stale (>{FRESHNESS_MAX_AGE}m). "
+            "dbt will still run — incremental no-op if there is nothing to do."
+        )
+    else:
+        print("All tables are fresh")
 
 
 default_args = {
@@ -121,7 +134,7 @@ default_args = {
 with DAG(
     dag_id="platform_refresh",
     default_args=default_args,
-    description="Freshness check, dbt build, dbt test",
+    description="CDC health log, dbt build, dbt test",
     schedule=SCHEDULE,
     start_date=datetime(2024, 1, 1),
     catchup=False,
@@ -137,28 +150,22 @@ with DAG(
     tags=["reporting-platform", "dbt"],
 ) as dag:
 
-    freshness = ShortCircuitOperator(
-        task_id="check_freshness",
-        python_callable=check_freshness,
-        ignore_downstream_trigger_rules=True,
+    health = PythonOperator(
+        task_id="log_cdc_health",
+        python_callable=log_cdc_health,
     )
 
     build = BashOperator(
         task_id="dbt_build",
-        bash_command="bash /opt/reporting/scripts/dbt/run.sh build",
+        bash_command="bash /opt/reporting/scripts/dbt/run.sh build --exclude tag:reconcile",
     )
 
     test = BashOperator(
         task_id="dbt_test",
-        # Skip the cross-system reconcile tests in the hourly DAG —
-        # they compare CH curated marts against live PG source via
-        # postgresql() and diverge by construction when a mart applies
-        # a date window (e.g. mart_stock_status filters on a 3-year
-        # rolling window; the source has the full history). Run them
-        # on operator demand via `make reconcile`. The non-reconcile
-        # tests (uniqueness, not_null, accepted_values, relationships)
-        # still run here and gate the DAG.
+        # Cross-system reconcile tests run via `make reconcile` on operator
+        # demand; the hourly DAG sticks to the cheap structural tests
+        # (uniqueness, not_null, accepted_values, relationships).
         bash_command="bash /opt/reporting/scripts/dbt/run.sh test --exclude tag:reconcile",
     )
 
-    freshness >> build >> test
+    health >> build >> test

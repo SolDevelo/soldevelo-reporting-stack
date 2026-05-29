@@ -120,7 +120,11 @@ EOF
 fi
 
 if [ ! -f "$DBT_DIR/packages.yml" ] || ! cmp -s "$PACKAGES_TMP" "$DBT_DIR/packages.yml"; then
-  cp "$PACKAGES_TMP" "$DBT_DIR/packages.yml"
+  # 0664 (not the mktemp default 0600) so subsequent runs under a different
+  # UID — e.g. an operator running `make dbt-build` as their host user after
+  # the Airflow scheduler (uid 50000) generated the file — can still rewrite
+  # it without permission errors.
+  install -m 0664 "$PACKAGES_TMP" "$DBT_DIR/packages.yml"
 fi
 
 # `docker build <ctx>` tars the context on the CLI side, so the path must

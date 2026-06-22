@@ -30,6 +30,12 @@ PERMISSIONS = [
     ("can_read", "Explore"),
     ("can_read", "ExploreFormDataRestApi"),
     ("can_read", "SavedQuery"),
+    # Current user — the Embedded SDK bootstraps by calling GET /api/v1/me/ and
+    # /api/v1/me/roles/. Superset 6.x gates these behind CurrentUserRestApi, so
+    # without this the guest role gets a 403 on embed startup and the dashboard
+    # never renders. (Older Superset versions did not gate these, which is why
+    # embeds worked before the 6.x pin.)
+    ("can_read", "CurrentUserRestApi"),
 ]
 
 with app.app_context():

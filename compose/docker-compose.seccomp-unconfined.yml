@@ -1,0 +1,50 @@
+# =============================================================================
+# Optional overlay: run services with seccomp disabled (unconfined).
+# =============================================================================
+# Use ONLY on hosts whose Docker engine / libseccomp is too old to allow the
+# clone3 syscall. Old profiles (e.g. libseccomp 2.4.x shipped with Docker
+# 19.03) return EPERM instead of ENOSYS for clone3, so modern glibc/Rust
+# binaries (uv, gunicorn, ClickHouse, Airflow, Superset) crash at startup with
+# "Operation not permitted". Disabling seccomp lets clone3 reach the kernel,
+# which then returns ENOSYS and glibc falls back to clone().
+#
+# Security note: this removes one defense-in-depth layer (kernel attack-surface
+# reduction) for these containers only. Capabilities, namespaces, cgroups and
+# AppArmor still apply. Prefer upgrading the host's Docker engine — once the
+# engine ships a modern seccomp profile this overlay is unnecessary.
+#
+# Apply with:
+#   COMPOSE_OVERLAY=compose/docker-compose.seccomp-unconfined.yml make up
+#
+# Note: this only affects the RUNTIME containers. Image builds that trip the
+# same clone3 wall must be built separately with the classic builder, e.g.
+#   DOCKER_BUILDKIT=0 docker build --security-opt seccomp=unconfined -t <tag> <ctx>
+# =============================================================================
+
+services:
+  kafka:
+    security_opt: ["seccomp:unconfined"]
+  kafka-connect:
+    security_opt: ["seccomp:unconfined"]
+  connect-watchdog:
+    security_opt: ["seccomp:unconfined"]
+  kafka-ui:
+    security_opt: ["seccomp:unconfined"]
+  clickhouse:
+    security_opt: ["seccomp:unconfined"]
+  airflow-db:
+    security_opt: ["seccomp:unconfined"]
+  airflow-init:
+    security_opt: ["seccomp:unconfined"]
+  airflow-dag-processor:
+    security_opt: ["seccomp:unconfined"]
+  airflow-scheduler:
+    security_opt: ["seccomp:unconfined"]
+  airflow-webserver:
+    security_opt: ["seccomp:unconfined"]
+  superset-db:
+    security_opt: ["seccomp:unconfined"]
+  superset-init:
+    security_opt: ["seccomp:unconfined"]
+  superset:
+    security_opt: ["seccomp:unconfined"]

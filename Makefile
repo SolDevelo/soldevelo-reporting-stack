@@ -1,7 +1,11 @@
 COMPOSE_DIR := compose
-COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml
+# Optional extra compose overlay, appended as a second -f. Set COMPOSE_OVERLAY
+# (env or make var) to layer adopter/host-specific config on top of the base
+# file — e.g. compose/docker-compose.seccomp-unconfined.yml for hosts with an
+# outdated Docker/seccomp. Unset = base file only (unchanged behaviour).
+COMPOSE_CMD := docker compose --env-file .env -f $(COMPOSE_DIR)/docker-compose.yml $(if $(COMPOSE_OVERLAY),-f $(COMPOSE_OVERLAY))
 
-.PHONY: up down ps logs restart reset build setup recover recover-slot bootstrap-export bootstrap-import reconcile verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh snapshot-tables superset-import package-fetch package-validate
+.PHONY: up down ps logs restart reset build setup initial-dbt-build recover recover-slot bootstrap-export bootstrap-import reconcile verify-services verify-cdc verify-ingestion verify-dbt verify-airflow verify-superset verify-packages clickhouse-init dbt-build dbt-test register-connector connector-status delete-connector connector-refresh snapshot-tables superset-import package-fetch package-validate
 
 up: ## Start all services
 	@docker network inspect reporting-shared > /dev/null 2>&1 || \
@@ -26,8 +30,11 @@ reset: ## Stop services and wipe all volumes
 build: ## Build/rebuild service images (or SVC=<name>)
 	$(COMPOSE_CMD) build $(SVC)
 
-setup: ## Configure platform: register connector + init ClickHouse + verify
+setup: ## Configure platform: register connector + init ClickHouse + verify (does NOT run dbt; cheap + idempotent)
 	@bash scripts/setup.sh
+
+initial-dbt-build: ## One-time full mart build for a fresh deployment. Run once after the first `make setup` succeeds. Routine refreshes happen via the Airflow DAG.
+	@bash scripts/dbt/run.sh build --full-refresh
 
 recover: ## Restore a broken pipeline: verify services, re-register connector, restart failed tasks, verify CDC + ingestion
 	@bash scripts/recover.sh

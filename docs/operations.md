@@ -2,6 +2,30 @@
 
 How to monitor, maintain, and recover the reporting stack in a running environment.
 
+## Deployment lifecycle
+
+The reporting stack splits "platform setup" (light, idempotent) from "data build" (heavy, one-time). Treat them as separate phases of any deployment.
+
+| When | Command | What it does | Cost |
+| --- | --- | --- | --- |
+| Fresh deployment | `make up` | Start all containers. | Seconds–minutes (image pulls on first build). |
+|  | `make setup` | Wait for Kafka Connect, register CDC connector, init ClickHouse raw landing, import Superset dashboards, run verification checks. **Does not run dbt.** | <1 min on a warm host. |
+|  | `make initial-dbt-build` | One-time `dbt build --full-refresh` over the full CDC history. Builds every staging and mart. | Minutes–hours depending on raw size and instance class. May require temporary instance sizing for the one-time scan (see "Initial build sizing"). |
+| Redeploy / restart (existing data, no schema change) | `make up && make setup` | Re-stand-up the platform. The CDC connector resumes from its replication slot; ClickHouse raw tables and curated marts are unchanged. | <1 min. Safe to re-run any time. |
+| Routine refresh | Airflow `platform_refresh` DAG (hourly by default) | Freshness check → `dbt build` (incremental) → `dbt test`. | Seconds–minutes per run, proportional to the delta in raw events. |
+| Full reconcile (after suspected source deletes, dimension drift, or aging past the 3-year window) | `make initial-dbt-build` | Re-runs `dbt build --full-refresh`. Rebuilds every mart from current raw + source state. | Same as initial build. |
+
+**Important:** Jenkins-style redeploy scripts should call `make setup` only. `make initial-dbt-build` is an explicit operator decision; running it on a redeploy is wasteful in the best case and a memory hazard in the worst (the `--full-refresh` scans every CDC event for the big incremental marts).
+
+### Initial build sizing
+
+`make initial-dbt-build` is the heaviest dbt operation. On the Malawi dev instance (`r5.xlarge`, 4 vCPU / 32 GiB) the `mart_stock_status` full-refresh dominates: it scans every event in `stg_requisition_line_items` (~28.8 M events when last measured) and joins to every dimension. Two settings keep the build safe:
+
+- `threads: 1` is pinned in `dbt/profiles.yml` so concurrent model builds don't stack peak memory (and to dodge a `SESSION_IS_LOCKED` race in dbt-clickhouse 1.10). Incremental models are individually small, so the wall-clock penalty is negligible.
+- The dbt profile passes `max_memory_usage` (default 20 GiB) as a `custom_setting`, so each query has its own cap. A misbehaving query fails fast with `MEMORY_LIMIT_EXCEEDED` instead of pushing ClickHouse to self-terminate (which would take the whole server down). Override with the `CLICKHOUSE_MAX_MEMORY_USAGE` env var (bytes) on hosts with more or less RAM.
+
+If you still hit memory pressure, build in pieces — `dbt run --select stg_*` first, then individual marts — or temporarily upsize the instance. Once the initial build completes successfully, routine refreshes are cheap; the heavy step is amortized across all future hourly runs.
+
 ## Verifying the pipeline is healthy
 
 Run these checks in order to confirm end-to-end data flow:

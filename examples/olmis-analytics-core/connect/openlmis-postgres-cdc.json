@@ -10,6 +10,9 @@
     "database.user": "${SOURCE_PG_USER}",
     "database.password": "${SOURCE_PG_PASSWORD}",
 
+    "_comment.sslmode": "TLS for the source connection. 'prefer' (default) uses SSL if the server offers it and falls back to plaintext — fine for local DBs on the Docker network (e.g. ref-distro) that don't serve SSL. Set SOURCE_PG_SSLMODE=require for managed/remote sources like RDS to enforce encryption in transit (mandatory if the server has rds.force_ssl=1). Use verify-full only if you mount the server CA bundle into the kafka-connect image.",
+    "database.sslmode": "${SOURCE_PG_SSLMODE}",
+
     "topic.prefix": "${DEBEZIUM_TOPIC_PREFIX}",
 
     "plugin.name": "pgoutput",

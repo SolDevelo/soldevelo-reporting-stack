@@ -1,26 +1,49 @@
 {{
   config(
-    materialized='view'
+    materialized='incremental',
+    incremental_strategy='delete_insert',
+    unique_key='id',
+    engine='MergeTree()',
+    order_by='id',
+    settings={'allow_nullable_key': 1}
   )
 }}
 
 -- Current-state reconstruction for requisition.requisition_line_items.
+-- Incremental: only re-ranks ids whose raw events arrived after the
+-- materialized watermark. See stg_requisitions for the full pattern.
 
-with ranked as (
-  select
-    *,
-    row_number() over (
-      partition by coalesce(
-        nullIf(JSONExtractString(after,  'id'), ''),
-        nullIf(JSONExtractString(before, 'id'), '')
-      )
-      order by ts_ms desc, _ingested_at desc
-    ) as _rn
+with touched_ids as (
+  select distinct coalesce(
+    nullIf(JSONExtractString(after,  'id'), ''),
+    nullIf(JSONExtractString(before, 'id'), '')
+  ) as id_str
   from raw.events_openlmis_requisition_requisition_line_items
   where coalesce(
         nullIf(JSONExtractString(after,  'id'), ''),
         nullIf(JSONExtractString(before, 'id'), '')
       ) != ''
+  {% if is_incremental() %}
+    and ts_ms > (select coalesce(max(_cdc_ts_ms), 0) from {{ this }})
+  {% endif %}
+),
+
+ranked as (
+  select
+    e.*,
+    row_number() over (
+      partition by coalesce(
+        nullIf(JSONExtractString(e.after,  'id'), ''),
+        nullIf(JSONExtractString(e.before, 'id'), '')
+      )
+      order by e.ts_ms desc, e._ingested_at desc
+    ) as _rn
+  from raw.events_openlmis_requisition_requisition_line_items e
+  inner join touched_ids t
+    on coalesce(
+         nullIf(JSONExtractString(e.after,  'id'), ''),
+         nullIf(JSONExtractString(e.before, 'id'), '')
+       ) = t.id_str
 )
 
 select
@@ -44,7 +67,12 @@ select
   JSONExtractFloat(after, 'priceperpack')                 as price_per_pack,
   JSONExtractFloat(after, 'totalcost')                    as total_cost,
   JSONExtractBool(after, 'skipped')                       as skipped,
-  JSONExtractBool(after, 'nonfullsupply')                 as non_full_supply
+  JSONExtractBool(after, 'nonfullsupply')                 as non_full_supply,
+
+  -- CDC watermark columns
+  ts_ms                                                   as _cdc_ts_ms,
+  toDateTime64(ts_ms / 1000, 3)                           as _cdc_ts,
+  op                                                      as _cdc_op
 from ranked
 where _rn = 1
   and op != 'd'

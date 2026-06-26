@@ -191,6 +191,18 @@ services:
       CLICKHOUSE_DB: "${CLICKHOUSE_DB:-reporting}"
       CLICKHOUSE_USER: "${CLICKHOUSE_USER:-default}"
       CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-changeme}"
+      # Redirect HOME so libpq (used by the postgresql() table function)
+      # looks for client TLS material under the clickhouse user's own home
+      # instead of /root. The official image inherits HOME=/root from the
+      # base image, but clickhouse-server runs as uid 101 which can't
+      # traverse /root (mode 0700). libpq's $HOME/.postgresql probe then
+      # returns EACCES, postgresql() falls back to no-SSL, and any RDS
+      # source rejects that (no pg_hba entry without SSL) — reconcile
+      # tests fail with POSTGRESQL_CONNECTION_FAILURE. With HOME pointed
+      # at the clickhouse user's writeable home, the probe returns ENOENT
+      # (libpq treats this as "no client cert configured, use server-cert-
+      # only SSL") and the connection succeeds.
+      HOME: /var/lib/clickhouse
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --user ${CLICKHOUSE_USER:-default} --password ${CLICKHOUSE_PASSWORD:-changeme} -q 'SELECT 1' || exit 1"]
       interval: 10s
@@ -377,6 +389,16 @@ services:
       AIRFLOW__CORE__MAX_TASK_RETRIES_ON_UNEXPECTED_EXIT: "0"
       REPORTING_HOST_ROOT: "${REPORTING_HOST_ROOT:-}"
     user: "${AIRFLOW_UID:-50000}:0"
+    # Supplementary group for the host's docker group so the airflow user
+    # can talk to the bind-mounted docker.sock. dbt runs via `docker run`
+    # from a BashOperator, which is gated by /var/run/docker.sock perms
+    # (typically 0660 root:docker on the host). The GID varies by distro
+    # — set AIRFLOW_DOCKER_GID in .env to the value of
+    #   stat -c '%g' /var/run/docker.sock
+    # on the host. Default 0 is a no-op (root is already in the user spec)
+    # and will fall back to the unfixed behaviour.
+    group_add:
+      - "${AIRFLOW_DOCKER_GID:-0}"
     volumes:
       - ../airflow/dags:/opt/airflow/dags:ro
       - airflow_logs:/opt/airflow/logs

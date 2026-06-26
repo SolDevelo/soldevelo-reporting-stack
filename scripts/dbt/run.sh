@@ -65,12 +65,19 @@ if [ -n "$ANALYTICS_CORE_GIT_URL" ]; then
   GIT_MODE=1
 fi
 
-# Generate packages.yml
+# Generate packages.yml. Build the content into a tmp file first; only
+# replace the on-disk file when content differs. This keeps the script
+# idempotent for repeat invocations and — importantly — avoids requiring
+# write permission on the existing file in steady-state runs (Airflow's
+# `airflow` UID can't overwrite a file owned by the deployer's UID when
+# the deploy hasn't pre-set a writable mode).
 DBT_DIR="$SCRIPT_ROOT/dbt"
+PACKAGES_TMP="$(mktemp)"
+trap 'rm -f "$PACKAGES_TMP"' EXIT
 
 if [ -n "$GIT_MODE" ]; then
   # Git mode: dbt fetches packages directly from Git
-  cat > "$DBT_DIR/packages.yml" <<EOF
+  cat > "$PACKAGES_TMP" <<EOF
 packages:
   - git: "${ANALYTICS_CORE_GIT_URL}"
     revision: "${ANALYTICS_CORE_GIT_REF}"
@@ -87,7 +94,7 @@ EOF
       ext_url="$(echo "${EXT_URLS[$i]}" | xargs)"
       [ -z "$ext_url" ] && continue
       local_ref="${EXT_REFS[$i]:-main}"
-      cat >> "$DBT_DIR/packages.yml" <<EOF
+      cat >> "$PACKAGES_TMP" <<EOF
   - git: "$ext_url"
     revision: "$(echo "$local_ref" | xargs)"
     subdirectory: "dbt"
@@ -96,7 +103,7 @@ EOF
   fi
 else
   # Local mode: mount packages as Docker volumes
-  cat > "$DBT_DIR/packages.yml" <<EOF
+  cat > "$PACKAGES_TMP" <<EOF
 packages:
   - local: /analytics/core/dbt
 EOF
@@ -107,9 +114,17 @@ EOF
       # Same skip-empty guard as the git-mode branch.
       ext_path="$(echo "${EXTENSIONS[$i]}" | xargs)"
       [ -z "$ext_path" ] && continue
-      echo "  - local: /analytics/extensions/$i/dbt" >> "$DBT_DIR/packages.yml"
+      echo "  - local: /analytics/extensions/$i/dbt" >> "$PACKAGES_TMP"
     done
   fi
+fi
+
+if [ ! -f "$DBT_DIR/packages.yml" ] || ! cmp -s "$PACKAGES_TMP" "$DBT_DIR/packages.yml"; then
+  # 0664 (not the mktemp default 0600) so subsequent runs under a different
+  # UID — e.g. an operator running `make dbt-build` as their host user after
+  # the Airflow scheduler (uid 50000) generated the file — can still rewrite
+  # it without permission errors.
+  install -m 0664 "$PACKAGES_TMP" "$DBT_DIR/packages.yml"
 fi
 
 # `docker build <ctx>` tars the context on the CLI side, so the path must
@@ -134,6 +149,18 @@ DOCKER_ARGS=(
   --rm
   --network "${COMPOSE_PROJECT}_reporting"
   -e "CLICKHOUSE_HOST=${CLICKHOUSE_HOST}"
+)
+
+# Optional seccomp profile for the dbt container. The dbt run is a bare
+# `docker run` (not a compose service), so a compose security_opt override
+# does not reach it. On hosts with an outdated Docker/seccomp that rejects the
+# clone3 syscall (EPERM), dbt's worker threads crash; set DBT_DOCKER_SECCOMP=
+# unconfined in .env there. Unset = the daemon default profile (unchanged).
+if [ -n "${DBT_DOCKER_SECCOMP:-}" ]; then
+  DOCKER_ARGS+=(--security-opt "seccomp=${DBT_DOCKER_SECCOMP}")
+fi
+
+DOCKER_ARGS+=(
   -e "CLICKHOUSE_PORT=${CLICKHOUSE_PORT}"
   -e "CLICKHOUSE_USER=${CLICKHOUSE_USER}"
   -e "CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}"

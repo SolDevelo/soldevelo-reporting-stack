@@ -1,6 +1,8 @@
 {{
   config(
-    materialized='table',
+    materialized='incremental',
+    incremental_strategy='delete_insert',
+    unique_key='adjustment_id',
     engine='MergeTree()',
     order_by='(reason_name, status_change_date, requisition_id)',
     settings={'allow_nullable_key': 1}
@@ -23,6 +25,10 @@
 --     mw-distro because modern OpenLMIS uses sar.reasonid (global FK)
 --     as the join key. We join via reason_id (FK).
 -- Rolling 3-year window on requisition.created_date (matches legacy).
+--
+-- Incremental design: same shape as mart_stock_status. unique_key=
+-- adjustment_id, watermark on stg_stock_adjustments._cdc_ts. Dimension
+-- drift and 3-year-window drift require periodic --full-refresh.
 
 with status_changes_filtered as (
   select
@@ -93,7 +99,11 @@ select
   case when sar.reason_type = 'CREDIT' then sa.quantity
        when sar.reason_type = 'DEBIT'  then -sa.quantity
        else sa.quantity
-  end                                as signed_quantity
+  end                                as signed_quantity,
+
+  -- CDC watermark: timestamp of the latest stock_adjustment event that
+  -- produced this row.
+  sa._cdc_ts                         as _cdc_ts
 
 from {{ ref('stg_stock_adjustments') }} sa
 inner join {{ ref('stg_requisition_line_items') }} li
@@ -119,3 +129,6 @@ left join submitted_or_later sl
 left join {{ ref('stg_stock_adjustment_reasons') }} sar
   on sar.reason_id = sa.reason_id
 where r.created_date >= now() - interval 3 year
+{% if is_incremental() %}
+  and sa._cdc_ts > (select coalesce(max(_cdc_ts), toDateTime64(0, 3)) from {{ this }})
+{% endif %}

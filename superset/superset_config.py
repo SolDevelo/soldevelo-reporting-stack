@@ -19,6 +19,13 @@ SQLALCHEMY_DATABASE_URI = os.environ.get(
 # Disable example data loading
 SUPERSET_LOAD_EXAMPLES = False
 
+# Trust X-Forwarded-* headers from the TLS-terminating proxy (e.g. an ALB doing
+# HTTPS on :443/:8443 and forwarding plain HTTP to this container). Without this,
+# Superset sees the request as http and generates http:// redirects, breaking
+# login and embedding when served over HTTPS. No-op when accessed directly (no
+# X-Forwarded-* headers present), so it is safe for local dev too.
+ENABLE_PROXY_FIX = True
+
 # Feature flags
 FEATURE_FLAGS = {
     "ENABLE_TEMPLATE_PROCESSING": True,

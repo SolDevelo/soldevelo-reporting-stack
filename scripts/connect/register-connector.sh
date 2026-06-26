@@ -29,6 +29,12 @@ ANALYTICS_CORE_PATH="${ANALYTICS_CORE_PATH:-examples/olmis-analytics-core}"
 DEBEZIUM_SNAPSHOT_MODE="${DEBEZIUM_SNAPSHOT_MODE:-when_needed}"
 export DEBEZIUM_SNAPSHOT_MODE
 
+# Source connection TLS mode. Default 'prefer' keeps local DBs that don't serve
+# SSL (e.g. ref-distro on the Docker network) working, while remote/managed
+# sources can opt into 'require' (or stricter) via .env.
+SOURCE_PG_SSLMODE="${SOURCE_PG_SSLMODE:-prefer}"
+export SOURCE_PG_SSLMODE
+
 # Resolve connector template from analytics-core package
 # Look for the first .json file in the package's connect/ directory
 if [[ "$ANALYTICS_CORE_PATH" = /* ]]; then
@@ -174,7 +180,7 @@ preflight_publication_membership
 
 # Substitute only the known connector env vars (prevents mangling passwords
 # or values containing $ signs)
-ENVSUBST_VARS='${SOURCE_PG_HOST} ${SOURCE_PG_PORT} ${SOURCE_PG_DB} ${SOURCE_PG_USER} ${SOURCE_PG_PASSWORD} ${DEBEZIUM_TOPIC_PREFIX} ${SOURCE_PG_SLOT_NAME} ${SOURCE_PG_PUBLICATION} ${SOURCE_PG_TABLE_ALLOWLIST} ${DEBEZIUM_SNAPSHOT_MODE}'
+ENVSUBST_VARS='${SOURCE_PG_HOST} ${SOURCE_PG_PORT} ${SOURCE_PG_DB} ${SOURCE_PG_USER} ${SOURCE_PG_PASSWORD} ${SOURCE_PG_SSLMODE} ${DEBEZIUM_TOPIC_PREFIX} ${SOURCE_PG_SLOT_NAME} ${SOURCE_PG_PUBLICATION} ${SOURCE_PG_TABLE_ALLOWLIST} ${DEBEZIUM_SNAPSHOT_MODE}'
 RENDERED=$(envsubst "$ENVSUBST_VARS" < "$TEMPLATE")
 
 # Extract connector name from the rendered JSON

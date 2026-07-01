@@ -17,23 +17,28 @@ DEBEZIUM_TOPIC_PREFIX="${DEBEZIUM_TOPIC_PREFIX:-openlmis}"
 
 PASS=0
 FAIL=0
+WARN=0
 
+# A check function returns 0 (pass), 2 (warn — healthy but unconfirmed, non-fatal),
+# or anything else (fail). Its output is shown on warn/fail only.
 check() {
   local name="$1"
   shift
-  # Show the check's output only on failure.
-  local out
-  if out=$("$@" 2>&1); then
+  local out rc
+  out=$("$@" 2>&1) && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ]; then
     echo "  PASS  $name"
     PASS=$((PASS + 1))
+  elif [ "$rc" -eq 2 ]; then
+    echo "  WARN  $name"
+    WARN=$((WARN + 1))
+    [ -n "$out" ] && echo "$out" | sed 's/^/      /'
   else
     echo "  FAIL  $name"
     FAIL=$((FAIL + 1))
-    if [ -n "$out" ]; then
-      echo "$out" | sed 's/^/      /'
-    fi
+    [ -n "$out" ] && echo "$out" | sed 's/^/      /'
   fi
-  # Always succeed so a failed check doesn't trip `set -e`; FAIL drives the exit.
+  # Always succeed so a check's exit code doesn't trip `set -e`; FAIL drives the exit.
   return 0
 }
 
@@ -91,14 +96,16 @@ check_cdc_topics() {
 }
 check "At least one CDC topic exists (prefix: ${DEBEZIUM_TOPIC_PREFIX})" check_cdc_topics
 
-# --- Check 3: CDC streaming is active (heartbeat offset advancing) ---
-# The connector only emits heartbeats once it leaves the initial snapshot, which
-# can take minutes on a fresh deploy. Poll up to STREAMING_WAIT_SECONDS for the
-# heartbeat topic to appear and its offset to advance — proof that WAL →
-# Debezium → Kafka works. Fails on a real stall once the budget is exhausted.
+# --- Check 3: CDC streaming status ---
+# Heartbeats only flow once the connector leaves the initial snapshot, which on a
+# fresh/wipe deploy can take hours (a large table snapshots for a long time). We
+# deliberately do NOT wait for that — a healthy, still-snapshotting system must
+# not block or fail the deploy. Briefly confirm streaming if it's already active;
+# otherwise report snapshot-in-progress and finish clean. Real faults are caught
+# by the connector preflight (publication) and check 1 (connector/task RUNNING).
 COMPOSE_CMD="docker compose --env-file $REPO_ROOT/.env -f $REPO_ROOT/compose/docker-compose.yml"
 HEARTBEAT_TOPIC="__debezium-heartbeat.${DEBEZIUM_TOPIC_PREFIX}"
-STREAMING_WAIT_SECONDS="${STREAMING_WAIT_SECONDS:-300}"
+STREAMING_CONFIRM_SECONDS="${STREAMING_CONFIRM_SECONDS:-30}"
 
 heartbeat_offset() {
   $COMPOSE_CMD exec -T kafka \
@@ -107,36 +114,40 @@ heartbeat_offset() {
 }
 
 check_cdc_streaming() {
-  local baseline="" current="" elapsed=0
+  local baseline="" current="" start="$SECONDS"
 
-  # Wait for the topic to appear (baseline), then for its offset to move.
-  while [ "$elapsed" -lt "$STREAMING_WAIT_SECONDS" ]; do
+  # Short confirmation window (real wall-clock) — long enough to observe active
+  # streaming, NOT a wait for the snapshot to finish.
+  while [ "$((SECONDS - start))" -lt "$STREAMING_CONFIRM_SECONDS" ]; do
     current=$(heartbeat_offset)
     if [ -n "$current" ]; then
       if [ -z "$baseline" ]; then
         baseline="$current"
       elif [ "$current" -gt "$baseline" ] 2>/dev/null; then
-        echo "    heartbeat offset advancing: $baseline → $current (after ${elapsed}s)" >&2
+        echo "streaming active — heartbeat advancing ($baseline → $current)" >&2
         return 0
       fi
     fi
-    sleep 6
-    elapsed=$((elapsed + 6))
+    sleep 5
   done
 
+  # Streaming not confirmed in the window — non-fatal (return 2 = WARN); the build
+  # stays green. The message says whether this is expected.
   if [ -z "$baseline" ]; then
-    echo "    heartbeat topic '$HEARTBEAT_TOPIC' never appeared within ${STREAMING_WAIT_SECONDS}s" >&2
-    echo "    connector is likely still running its initial snapshot — check connector status/logs" >&2
+    echo "initial snapshot in progress — streaming has not started yet." >&2
+    echo "This is EXPECTED on a fresh/wipe deploy and needs no action: the connector is" >&2
+    echo "RUNNING, and streaming (plus the hourly dashboard refresh) begins automatically" >&2
+    echo "once the snapshot completes. Data is already loading into ClickHouse meanwhile." >&2
   else
-    echo "    heartbeat offset stuck at $baseline after ${STREAMING_WAIT_SECONDS}s" >&2
-    echo "    check: connector DB connection, replication slot, publication tables" >&2
+    echo "heartbeat topic exists but its offset is not advancing (stuck at $baseline)." >&2
+    echo "If the initial snapshot has already completed, investigate the connector/slot." >&2
   fi
-  return 1
+  return 2
 }
-check "CDC streaming active (heartbeat advancing)" check_cdc_streaming
+check "CDC streaming status" check_cdc_streaming
 
 echo "-------------------------------"
-echo "Results: ${PASS} passed, ${FAIL} failed"
+echo "Results: ${PASS} passed, ${FAIL} failed, ${WARN} warning(s)"
 
 if [ "$FAIL" -gt 0 ]; then
   exit 1

@@ -74,6 +74,16 @@ CREATE PUBLICATION dbz_publication FOR TABLE
 ALTER ROLE postgres WITH REPLICATION;
 ```
 
+> **If you rebuild or restore the source DB, re-apply this SQL.** The heartbeat
+> table, signal table, and publication live *inside* the database, so any flow
+> that replaces it — restoring from a snapshot/dump, refreshing a dev/UAT DB
+> from production, or a full Flyway re-init — drops them. Fold this idempotent
+> SQL into that restore step (and reset the reporting-stack CDC state so
+> Debezium re-snapshots against the new database), or the connector-registration
+> preflight will abort on the next deploy. The replication privilege is set on
+> the role and normally survives a restore. See
+> [runbook-slot-recovery.md](runbook-slot-recovery.md) for resetting CDC state.
+
 ## Expanding the table allowlist
 
 End-to-end procedure (publication update → connector refresh → incremental snapshot → dbt model + Superset dataset updates) lives in [runbook-add-tables.md](runbook-add-tables.md). The PG-side short version:

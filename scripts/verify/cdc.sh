@@ -21,13 +21,20 @@ FAIL=0
 check() {
   local name="$1"
   shift
-  if "$@" > /dev/null 2>&1; then
+  # Show the check's output only on failure.
+  local out
+  if out=$("$@" 2>&1); then
     echo "  PASS  $name"
     PASS=$((PASS + 1))
   else
     echo "  FAIL  $name"
     FAIL=$((FAIL + 1))
+    if [ -n "$out" ]; then
+      echo "$out" | sed 's/^/      /'
+    fi
   fi
+  # Always succeed so a failed check doesn't trip `set -e`; FAIL drives the exit.
+  return 0
 }
 
 echo "Verify: CDC connector"
@@ -85,48 +92,46 @@ check_cdc_topics() {
 check "At least one CDC topic exists (prefix: ${DEBEZIUM_TOPIC_PREFIX})" check_cdc_topics
 
 # --- Check 3: CDC streaming is active (heartbeat offset advancing) ---
-# The connector writes a heartbeat every 10s. If the Kafka heartbeat topic
-# offset advances within a cycle, the full streaming path is working:
-# PostgreSQL WAL → Debezium → Kafka.
-# This catches silent failures like an empty publication or a stale slot.
+# The connector only emits heartbeats once it leaves the initial snapshot, which
+# can take minutes on a fresh deploy. Poll up to STREAMING_WAIT_SECONDS for the
+# heartbeat topic to appear and its offset to advance — proof that WAL →
+# Debezium → Kafka works. Fails on a real stall once the budget is exhausted.
 COMPOSE_CMD="docker compose --env-file $REPO_ROOT/.env -f $REPO_ROOT/compose/docker-compose.yml"
 HEARTBEAT_TOPIC="__debezium-heartbeat.${DEBEZIUM_TOPIC_PREFIX}"
+STREAMING_WAIT_SECONDS="${STREAMING_WAIT_SECONDS:-300}"
+
+heartbeat_offset() {
+  $COMPOSE_CMD exec -T kafka \
+    /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
+    --topic "$HEARTBEAT_TOPIC" 2>/dev/null | cut -d: -f3
+}
 
 check_cdc_streaming() {
-  local before after elapsed=0
+  local baseline="" current="" elapsed=0
 
-  # Poll for the heartbeat topic — on first registration the connector may
-  # finish its initial snapshot before transitioning to streaming, during
-  # which window the heartbeat topic does not yet exist.
-  while [ "$elapsed" -lt "$TOPIC_WAIT_SECONDS" ]; do
-    before=$($COMPOSE_CMD exec -T kafka \
-      /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
-      --topic "$HEARTBEAT_TOPIC" 2>/dev/null | cut -d: -f3)
-    [ -n "$before" ] && break
-    sleep 3
-    elapsed=$((elapsed + 3))
+  # Wait for the topic to appear (baseline), then for its offset to move.
+  while [ "$elapsed" -lt "$STREAMING_WAIT_SECONDS" ]; do
+    current=$(heartbeat_offset)
+    if [ -n "$current" ]; then
+      if [ -z "$baseline" ]; then
+        baseline="$current"
+      elif [ "$current" -gt "$baseline" ] 2>/dev/null; then
+        echo "    heartbeat offset advancing: $baseline → $current (after ${elapsed}s)" >&2
+        return 0
+      fi
+    fi
+    sleep 6
+    elapsed=$((elapsed + 6))
   done
 
-  if [ -z "$before" ]; then
-    echo "    heartbeat topic '$HEARTBEAT_TOPIC' not found after ${TOPIC_WAIT_SECONDS}s" >&2
-    return 1
-  fi
-
-  # Wait for one heartbeat cycle (connector heartbeat.interval.ms = 10000)
-  sleep 12
-
-  after=$($COMPOSE_CMD exec -T kafka \
-    /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
-    --topic "$HEARTBEAT_TOPIC" 2>/dev/null | cut -d: -f3)
-
-  if [ "$after" -gt "$before" ] 2>/dev/null; then
-    echo "    heartbeat offset: $before → $after" >&2
-    return 0
+  if [ -z "$baseline" ]; then
+    echo "    heartbeat topic '$HEARTBEAT_TOPIC' never appeared within ${STREAMING_WAIT_SECONDS}s" >&2
+    echo "    connector is likely still running its initial snapshot — check connector status/logs" >&2
   else
-    echo "    heartbeat offset stuck at $before (expected to advance within 12s)" >&2
+    echo "    heartbeat offset stuck at $baseline after ${STREAMING_WAIT_SECONDS}s" >&2
     echo "    check: connector DB connection, replication slot, publication tables" >&2
-    return 1
   fi
+  return 1
 }
 check "CDC streaming active (heartbeat advancing)" check_cdc_streaming
 

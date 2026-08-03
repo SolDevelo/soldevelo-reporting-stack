@@ -32,14 +32,15 @@ FEATURE_FLAGS = {
     "EMBEDDED_SUPERSET": True,
 }
 
-# MW-1482: custom linear colour scheme for the Malawi district stock-out map.
-# Superset 6.1 ships no green->red sequential scheme (RdYlGn runs red->green,
-# i.e. inverted for stock-out where low=good=green, high=bad=red). This registers
-# a green->red scale so the district map colours low stock-out green and high red.
+# MW-1482: a generic green->red sequential colour scheme. Superset 6.1 ships no
+# green->red sequential scheme (RdYlGn runs red->green, i.e. inverted when low
+# should read good/green and high bad/red). Registered generically so any project
+# can opt in via `linear_color_scheme: sequentialGreenToRed` — used by the Malawi
+# district stock-out map, but not specific to it.
 EXTRA_SEQUENTIAL_COLOR_SCHEMES = [
     {
-        "id": "mwStockoutGnRd",
-        "label": "Stock-out (green → red)",
+        "id": "sequentialGreenToRed",
+        "label": "Sequential (green → red)",
         "isDiverging": True,
         "colors": [
             "#006837", "#1a9850", "#66bd63", "#a6d96a", "#d9ef8b",

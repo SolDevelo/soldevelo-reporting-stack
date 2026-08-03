@@ -32,6 +32,22 @@ FEATURE_FLAGS = {
     "EMBEDDED_SUPERSET": True,
 }
 
+# MW-1482: custom linear colour scheme for the Malawi district stock-out map.
+# Superset 6.1 ships no green->red sequential scheme (RdYlGn runs red->green,
+# i.e. inverted for stock-out where low=good=green, high=bad=red). This registers
+# a green->red scale so the district map colours low stock-out green and high red.
+EXTRA_SEQUENTIAL_COLOR_SCHEMES = [
+    {
+        "id": "mwStockoutGnRd",
+        "label": "Stock-out (green → red)",
+        "isDiverging": True,
+        "colors": [
+            "#006837", "#1a9850", "#66bd63", "#a6d96a", "#d9ef8b",
+            "#fee08b", "#fdae61", "#f46d43", "#d73027", "#a50026",
+        ],
+    },
+]
+
 # --- Embedding configuration ---
 # Allows adopter applications to embed Superset dashboards in iframes.
 # Set SUPERSET_EMBEDDING_ORIGINS in .env to a comma-separated list of allowed origins.

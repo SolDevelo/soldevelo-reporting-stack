@@ -29,3 +29,12 @@ ENV SUPERSET_CONFIG_PATH=/app/superset_config.py
 # Superset Embedded SDK — served at /static/superset-embedded-sdk.js
 # Adopter UIs load this at runtime to embed dashboards via guest tokens.
 COPY superset-embedded-sdk.js /app/superset/static/superset-embedded-sdk.js
+
+# MW-1482: patched Malawi districts GeoJSON for the Country Map viz.
+# The upstream bundled malawi map (legacy-plugin-chart-country-map in Superset
+# 6.1) is MISSING Karonga (MW-KR) and DUPLICATES Chitipa (MW-CT) — the eastern
+# lakeshore polygon was mislabelled MW-CT/Chitipa; the patch relabels it
+# MW-KR/Karonga so all 28 districts render (see superset/patches/malawi.geojson).
+# NOTE: the target filename is a webpack content hash pinned to 6.1.0rc3; it will
+# change on any Superset image bump — re-derive it and refresh this COPY then.
+COPY patches/malawi.geojson /app/superset/static/assets/b4184a62d0fd2c456616.geojson

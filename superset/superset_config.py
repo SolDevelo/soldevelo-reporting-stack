@@ -32,6 +32,23 @@ FEATURE_FLAGS = {
     "EMBEDDED_SUPERSET": True,
 }
 
+# MW-1482: a generic green->red sequential colour scheme. Superset 6.1 ships no
+# green->red sequential scheme (RdYlGn runs red->green, i.e. inverted when low
+# should read good/green and high bad/red). Registered generically so any project
+# can opt in via `linear_color_scheme: sequentialGreenToRed` — used by the Malawi
+# district stock-out map, but not specific to it.
+EXTRA_SEQUENTIAL_COLOR_SCHEMES = [
+    {
+        "id": "sequentialGreenToRed",
+        "label": "Sequential (green → red)",
+        "isDiverging": True,
+        "colors": [
+            "#006837", "#1a9850", "#66bd63", "#a6d96a", "#d9ef8b",
+            "#fee08b", "#fdae61", "#f46d43", "#d73027", "#a50026",
+        ],
+    },
+]
+
 # --- Embedding configuration ---
 # Allows adopter applications to embed Superset dashboards in iframes.
 # Set SUPERSET_EMBEDDING_ORIGINS in .env to a comma-separated list of allowed origins.

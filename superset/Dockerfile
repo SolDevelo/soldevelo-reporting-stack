@@ -29,3 +29,28 @@ ENV SUPERSET_CONFIG_PATH=/app/superset_config.py
 # Superset Embedded SDK — served at /static/superset-embedded-sdk.js
 # Adopter UIs load this at runtime to embed dashboards via guest tokens.
 COPY superset-embedded-sdk.js /app/superset/static/superset-embedded-sdk.js
+
+# MW-1482: patch the bundled Malawi districts GeoJSON for the Country Map viz.
+# The upstream bundled Malawi map (legacy-plugin-chart-country-map) is MISSING
+# Karonga (MW-KR) and DUPLICATES Chitipa (MW-CT) — the eastern lakeshore polygon
+# was mislabelled MW-CT/Chitipa; the patch relabels it MW-KR/Karonga so all 28
+# districts render (see superset/patches/malawi.geojson). Upstream fix proposed:
+# https://github.com/apache/superset/pull/42707
+#
+# Resolve the bundled asset by CONTENT at build time — it is the only bundled
+# geojson whose FeatureCollection name is "malawi" — rather than by a webpack
+# content-hash filename. A Superset image bump then makes the build FAIL LOUDLY
+# (0 or >1 matches) instead of silently patching a stale filename nothing
+# references, which would let the map regress on an otherwise-green build.
+COPY patches/malawi.geojson /tmp/malawi.geojson
+USER root
+RUN set -eu; \
+    matches="$(grep -l '"name": "malawi"' /app/superset/static/assets/*.geojson || true)"; \
+    count="$(printf '%s\n' "$matches" | grep -c . || true)"; \
+    if [ "$count" -ne 1 ]; then \
+      echo "MW-1482: expected exactly 1 bundled 'malawi' geojson asset, found $count: [$matches]" >&2; \
+      exit 1; \
+    fi; \
+    cp /tmp/malawi.geojson "$matches"; \
+    rm /tmp/malawi.geojson
+USER superset

@@ -125,3 +125,11 @@ WTF_CSRF_ENABLED = True
 # Row limit for SQL Lab queries
 ROW_LIMIT = 50000
 SQL_MAX_ROW = 100000
+
+# Native dashboard filters load this many distinct values into their
+# dropdowns (Superset default: 1000). OpenLMIS deployments carry more
+# than 1000 products, so the default silently hid everything past the
+# cut - reported in the Malawi review as "there are no Malaria
+# products". Search still goes to the database (searchAllOptions on
+# the filters), this only sets how much is browsable without typing.
+NATIVE_FILTER_DEFAULT_ROW_LIMIT = 3000

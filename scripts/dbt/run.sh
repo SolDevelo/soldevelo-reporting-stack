@@ -164,6 +164,12 @@ DOCKER_ARGS+=(
   -e "CLICKHOUSE_PORT=${CLICKHOUSE_PORT}"
   -e "CLICKHOUSE_USER=${CLICKHOUSE_USER}"
   -e "CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}"
+  # Memory tuning knobs read by dbt/profiles.yml — without forwarding them the
+  # profile silently falls back to its defaults sized for production hosts.
+  -e "CLICKHOUSE_MAX_MEMORY_USAGE=${CLICKHOUSE_MAX_MEMORY_USAGE:-21474836480}"
+  -e "CLICKHOUSE_EXTERNAL_GROUP_BY_BYTES=${CLICKHOUSE_EXTERNAL_GROUP_BY_BYTES:-8589934592}"
+  -e "CLICKHOUSE_EXTERNAL_SORT_BYTES=${CLICKHOUSE_EXTERNAL_SORT_BYTES:-8589934592}"
+  -e "CLICKHOUSE_MAX_THREADS=${CLICKHOUSE_MAX_THREADS:-0}"
   # Source PG credentials for cross-system reconciliation tests
   # (reconcile_with_source generic test renders ClickHouse's postgresql()
   # table function with these values to read the live source state).

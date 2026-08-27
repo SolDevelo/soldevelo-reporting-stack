@@ -36,3 +36,7 @@ reporting_platform:
         # to a small slice, so nothing spills).
         max_bytes_before_external_group_by: "{{ env_var('CLICKHOUSE_EXTERNAL_GROUP_BY_BYTES', '8589934592') }}"
         max_bytes_before_external_sort: "{{ env_var('CLICKHOUSE_EXTERNAL_SORT_BYTES', '8589934592') }}"
+        # Read parallelism: each read thread buffers its own chunks of the fat
+        # JSON envelope columns, so on many-core hosts the read stage alone can
+        # trip max_memory_usage. 0 = ClickHouse default (one thread per core).
+        max_threads: "{{ env_var('CLICKHOUSE_MAX_THREADS', '0') }}"

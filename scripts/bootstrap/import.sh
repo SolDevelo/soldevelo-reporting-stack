@@ -88,9 +88,12 @@ echo ""
 # -----------------------------------------------------------------------------
 ch_post() {
   local query="$1"
+  # -T - streams stdin (chunked) instead of buffering the whole body in memory:
+  # --data-binary @- slurps all of stdin at option-parse time, so multi-GB
+  # imports kill curl with "option --data-binary: out of memory".
   curl -sf "http://${CLICKHOUSE_HOST}:${CLICKHOUSE_PORT}/?query=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$query")" \
     --user "${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}" \
-    --data-binary @-
+    -X POST -T -
 }
 
 ch_query() {
@@ -167,9 +170,29 @@ source_template = {
     "xmin": None,
 }
 
+def copy_text_unescape(s):
+    # COPY ... TO STDOUT (text format) escapes backslash/newline/tab/CR in the
+    # emitted row_to_json line; without reversing it, any row whose JSON contains
+    # a backslash or nested jsonb (escaped quotes) arrives as INVALID JSON and is
+    # silently dropped by the staging dedup.
+    if "\\" not in s:
+        return s
+    out = []
+    i = 0
+    mapping = {"\\": "\\", "n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v"}
+    while i < len(s):
+        c = s[i]
+        if c == "\\" and i + 1 < len(s) and s[i + 1] in mapping:
+            out.append(mapping[s[i + 1]])
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
 with open(in_path, encoding="utf-8") as f:
     for line in f:
-        line = line.strip()
+        line = copy_text_unescape(line.strip())
         if not line:
             continue
         envelope = {

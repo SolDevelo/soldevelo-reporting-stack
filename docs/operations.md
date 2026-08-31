@@ -23,6 +23,7 @@ The reporting stack splits "platform setup" (light, idempotent) from "data build
 
 - `threads: 1` is pinned in `dbt/profiles.yml` so concurrent model builds don't stack peak memory (and to dodge a `SESSION_IS_LOCKED` race in dbt-clickhouse 1.10). Incremental models are individually small, so the wall-clock penalty is negligible.
 - The dbt profile passes `max_memory_usage` (default 20 GiB) as a `custom_setting`, so each query has its own cap. A misbehaving query fails fast with `MEMORY_LIMIT_EXCEEDED` instead of pushing ClickHouse to self-terminate (which would take the whole server down). Override with the `CLICKHOUSE_MAX_MEMORY_USAGE` env var (bytes) on hosts with more or less RAM.
+- `CLICKHOUSE_MAX_THREADS` caps read parallelism (default `0` — one thread per core). Each read thread buffers its own chunks of the JSON envelope columns, so on many-core hosts the read stage alone can trip the cap. All four memory knobs are commented in `.env.example`.
 
 If you still hit memory pressure, build in pieces — `dbt run --select stg_*` first, then individual marts — or temporarily upsize the instance. Once the initial build completes successfully, routine refreshes are cheap; the heavy step is amortized across all future hourly runs.
 

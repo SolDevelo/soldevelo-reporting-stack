@@ -58,6 +58,7 @@ CREATE PUBLICATION dbz_publication FOR TABLE
   referencedata.programs,
   referencedata.geographic_zones,
   referencedata.orderables,
+  referencedata.program_orderables,
   referencedata.processing_periods,
   referencedata.processing_schedules,
   referencedata.facility_types,
@@ -68,8 +69,7 @@ CREATE PUBLICATION dbz_publication FOR TABLE
   requisition.requisition_line_items,
   requisition.status_changes,
   requisition.stock_adjustments,
-  requisition.stock_adjustment_reasons,
-  referencedata.program_orderables;
+  requisition.stock_adjustment_reasons;
 
 -- 4. Ensure the database user has replication privileges.
 ALTER ROLE postgres WITH REPLICATION;

@@ -115,13 +115,28 @@ make verify-ingestion     # raw tables have rows
 make verify-dbt           # dbt build succeeded, marts populated
 ```
 
-Spot-check a row count between source and a curated mart:
+Then reconcile against the source — row counts and PK checksums, source PG vs
+every tagged mart:
+
+```bash
+make reconcile
+```
+
+Do this before handing the deployment over: `platform_refresh` excludes
+`tag:reconcile`, so nothing else checks an initial load against the source.
+
+The facility and requisition marts reconcile at `tolerance_rows: 0`, and this
+reads live PG while the marts were built in step 5 — against a source still
+taking writes, expect small deltas there. Re-run `make dbt-build` immediately
+before, or run against a quiesced source, if you need a clean result.
+
+For an ad-hoc spot-check on a single table:
 
 ```bash
 docker exec mw-distro-db-1 psql -U postgres -d open_lmis -tAc \
   "SELECT count(*) FROM referencedata.facilities WHERE active=true"
 docker compose --env-file .env -f compose/docker-compose.yml exec clickhouse clickhouse-client --query \
-  "SELECT count() FROM curated.dim_facility"
+  "SELECT count() FROM curated.mart_facility_directory"
 ```
 
 (Counts should match, allowing for mart-side filters like soft-deletes.)

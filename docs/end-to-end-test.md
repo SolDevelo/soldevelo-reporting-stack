@@ -150,7 +150,8 @@ docker compose exec -T db psql -U postgres -d open_lmis \
   -c "ALTER PUBLICATION dbz_publication ADD TABLE
         public.debezium_signal,
         referencedata.facilities, referencedata.programs, referencedata.geographic_zones,
-        referencedata.orderables, referencedata.processing_periods, referencedata.processing_schedules,
+        referencedata.orderables, referencedata.program_orderables,
+        referencedata.processing_periods, referencedata.processing_schedules,
         referencedata.facility_types, referencedata.supported_programs,
         referencedata.requisition_group_members, referencedata.requisition_group_program_schedules,
         requisition.requisitions, requisition.requisition_line_items, requisition.status_changes,

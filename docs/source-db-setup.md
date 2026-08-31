@@ -68,7 +68,8 @@ CREATE PUBLICATION dbz_publication FOR TABLE
   requisition.requisition_line_items,
   requisition.status_changes,
   requisition.stock_adjustments,
-  requisition.stock_adjustment_reasons;
+  requisition.stock_adjustment_reasons,
+  referencedata.program_orderables;
 
 -- 4. Ensure the database user has replication privileges.
 ALTER ROLE postgres WITH REPLICATION;

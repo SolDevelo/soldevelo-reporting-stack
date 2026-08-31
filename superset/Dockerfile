@@ -54,3 +54,25 @@ RUN set -eu; \
     cp /tmp/malawi.geojson "$matches"; \
     rm /tmp/malawi.geojson
 USER superset
+
+# Give the Country Map readable district borders by default. The
+# plugin strokes districts with the theme's colorSplit token — rgba(5,5,5,.06),
+# effectively invisible — and exposes no border control, so adjacent districts
+# painted in similar colours blur together. Rewrite the style template inside
+# the plugin chunk: white 1.6px borders (the plugin's own
+# vector-effect: non-scaling-stroke keeps the width constant under zoom).
+# Same resolve-by-content contract as the geojson patch above: exactly one
+# bundled chunk carries the template, and an upstream change to it fails the
+# build loudly instead of silently dropping the border styling.
+USER root
+RUN set -eu; \
+    needle='.superset-legacy-chart-country-map path.region'; \
+    matches="$(grep -rl "$needle" /app/superset/static/assets/*.js || true)"; \
+    count="$(printf '%s\n' "$matches" | grep -c . || true)"; \
+    if [ "$count" -ne 1 ]; then \
+      echo "expected exactly 1 chunk with the country-map region style, found $count: [$matches]" >&2; \
+      exit 1; \
+    fi; \
+    perl -pi -e 's/stroke: \$\{e\.colorSplit\};/stroke: #ffffff; stroke-width: 1.6px;/' "$matches"; \
+    grep -q 'stroke: #ffffff; stroke-width: 1.6px;' "$matches"
+USER superset

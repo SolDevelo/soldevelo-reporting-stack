@@ -142,6 +142,10 @@ for line in "${TABLE_LINES[@]}"; do
     exit 1
   fi
 
+  # Read the watermark off ClickHouse's own clock: re-imports append at the same
+  # ts_ms, so the checks after the pipe must count this invocation's rows only.
+  since=$(ch_query "SELECT toString(now64(3))")
+
   # Transform NDJSON rows into the synthetic CDC envelope and stream into CH.
   # Done in python because we need JSON-encoded strings inside JSON objects.
   # The heredoc must attach to python3, NOT to ch_post — that's why the
@@ -149,7 +153,7 @@ for line in "${TABLE_LINES[@]}"; do
   # binds ch_post's stdin to python3's stdout.
   python3 - "$input_file" "$EXPORT_TS_MS" "$EXPORT_LSN_NUMERIC" "$schema" "$table" "$SOURCE_PG_DB" <<'PY' \
     | ch_post "INSERT INTO $ch_table (op, ts_ms, before, after, source, transaction) FORMAT JSONEachRow"
-import json, sys
+import json, re, sys
 
 in_path, ts_ms_str, lsn_str, schema, table, db_name = sys.argv[1:]
 ts_ms = int(ts_ms_str)
@@ -170,25 +174,21 @@ source_template = {
     "xmin": None,
 }
 
+_UNESCAPE_RE = re.compile(r"\\[\\ntrbfv]")
+_UNESCAPE_MAP = {
+    "\\\\": "\\", "\\n": "\n", "\\t": "\t", "\\r": "\r",
+    "\\b": "\b", "\\f": "\f", "\\v": "\v",
+}
+
+
 def copy_text_unescape(s):
     # COPY ... TO STDOUT (text format) escapes backslash/newline/tab/CR in the
-    # emitted row_to_json line; without reversing it, any row whose JSON contains
-    # a backslash or nested jsonb (escaped quotes) arrives as INVALID JSON and is
-    # silently dropped by the staging dedup.
+    # emitted row_to_json line. Unreversed, an embedded quote breaks the JSON
+    # (staging drops the row); a lone backslash or newline keeps it valid but
+    # wrong, and the corrupted value reaches the marts.
     if "\\" not in s:
         return s
-    out = []
-    i = 0
-    mapping = {"\\": "\\", "n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v"}
-    while i < len(s):
-        c = s[i]
-        if c == "\\" and i + 1 < len(s) and s[i + 1] in mapping:
-            out.append(mapping[s[i + 1]])
-            i += 2
-        else:
-            out.append(c)
-            i += 1
-    return "".join(out)
+    return _UNESCAPE_RE.sub(lambda m: _UNESCAPE_MAP[m.group(0)], s)
 
 with open(in_path, encoding="utf-8") as f:
     for line in f:
@@ -207,12 +207,25 @@ with open(in_path, encoding="utf-8") as f:
         sys.stdout.write("\n")
 PY
 
-  # Recently-imported rows may not be queryable immediately if there's any
-  # async settle; clickhouse INSERT FORMAT JSONEachRow is synchronous though,
-  # so the count below should be accurate.
-  after_count=$(ch_query "SELECT count() FROM $ch_table WHERE op='r' AND ts_ms=$EXPORT_TS_MS")
-  echo "  Rows now in $ch_table at ts_ms=$EXPORT_TS_MS: $after_count"
-  TOTAL_IMPORTED=$((TOTAL_IMPORTED + row_count))
+  landed_scope="op='r' AND ts_ms=$EXPORT_TS_MS AND _ingested_at >= toDateTime64('$since', 3)"
+  landed_count=$(ch_query "SELECT count() FROM $ch_table WHERE $landed_scope")
+  echo "  Rows landed in $ch_table: $landed_count"
+
+  # Invalid JSON inserts without error; staging's dedup then drops it silently
+  # (JSONExtractString returns '' and the row fails the filter).
+  invalid_count=$(ch_query "SELECT count() FROM $ch_table WHERE $landed_scope AND NOT isValidJSON(after)")
+  if [ "$invalid_count" != "0" ]; then
+    echo "  ERROR: $invalid_count of $landed_count landed rows carry invalid JSON in 'after'." >&2
+    echo "         dbt staging would drop them silently. Aborting the import." >&2
+    exit 1
+  fi
+
+  if [ "$landed_count" -lt "$row_count" ]; then
+    echo "  ERROR: $ndjson_filename holds $row_count rows but only $landed_count landed." >&2
+    exit 1
+  fi
+
+  TOTAL_IMPORTED=$((TOTAL_IMPORTED + landed_count))
 done
 
 # Stamp the manifest so re-runs can audit history.

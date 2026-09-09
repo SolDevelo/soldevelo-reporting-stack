@@ -68,6 +68,47 @@ else
 
   check "Dashboard 'OLMIS Requisition Overview' exists" \
     "curl -sf -H '$AUTH_HEADER' http://${SUPERSET_HOST}:${SUPERSET_PORT}/api/v1/dashboard/ | python3 -c \"import sys,json; titles=[d['dashboard_title'] for d in json.load(sys.stdin)['result']]; assert 'OLMIS Requisition Overview' in titles, titles\""
+
+  # Charts attached to a dashboard that its layout does not place. The asset
+  # importer only ever adds, so a chart deleted from the YAML, or moved off a
+  # dashboard, keeps its attachment - and Superset appends anything attached but
+  # unplaced to the bottom of the dashboard. It renders as a stray chart with no
+  # error anywhere, which is exactly how it gets found: by someone asking why it
+  # is there. The layout in the YAML is authoritative, so a mismatch is always
+  # stale attachment left behind by an earlier deploy.
+  # position_json carries the real slice ids in chartId once the importer has
+  # remapped them, so the two sets are directly comparable.
+  read -r -d '' ORPHAN_PY <<'PYEOF' || true
+import json, os, re, sys, urllib.request
+base = "http://%s:%s/api/v1" % (os.environ["SUPERSET_HOST"], os.environ["SUPERSET_PORT"])
+def get(u):
+    req = urllib.request.Request(base + u, headers={"Authorization": "Bearer " + os.environ["SS_TOKEN"]})
+    return json.load(urllib.request.urlopen(req))
+stray = []
+for d in get("/dashboard/?q=(page_size:100)")["result"]:
+    detail = get("/dashboard/%s" % d["id"])["result"]
+    placed = set(int(x) for x in re.findall(r'"chartId":\s*(\d+)', detail.get("position_json") or ""))
+    for c in get("/dashboard/%s/charts" % d["id"])["result"]:
+        if c["id"] not in placed:
+            stray.append("%s :: %s" % (d["dashboard_title"], c.get("slice_name")))
+if stray:
+    sys.stderr.write("stale chart attachments, not placed by any dashboard layout:\n")
+    for x in stray:
+        sys.stderr.write("          " + x + "\n")
+    sys.stderr.write("        detach them, or delete the chart if no YAML declares it any more\n")
+    sys.exit(1)
+PYEOF
+  # not run through check(), which sends both streams to /dev/null: the whole
+  # point of this one is the list of names it prints
+  if ORPHANS=$(SS_TOKEN="$TOKEN" SUPERSET_HOST="$SUPERSET_HOST" SUPERSET_PORT="$SUPERSET_PORT" \
+       python3 -c "$ORPHAN_PY" 2>&1); then
+    echo "  PASS  No chart attached to a dashboard that does not lay it out"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL  No chart attached to a dashboard that does not lay it out"
+    echo "$ORPHANS" | sed 's/^/        /'
+    FAIL=$((FAIL + 1))
+  fi
 fi
 
 echo "-------------------------------"

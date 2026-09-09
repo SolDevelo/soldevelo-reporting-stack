@@ -76,3 +76,94 @@ RUN set -eu; \
     perl -pi -e 's/stroke: \$\{e\.colorSplit\};/stroke: #ffffff; stroke-width: 1.6px;/' "$matches"; \
     grep -q 'stroke: #ffffff; stroke-width: 1.6px;' "$matches"
 USER superset
+
+# Draw the LAST label on a time x-axis, and only the last. Upstream pins the
+# edge labels but only when the labels are not rotated, so any chart with a
+# rotation loses the guarantee and the final month never gets a label.
+#
+# An earlier revision of this file pinned BOTH edges. That was wrong on the
+# minimum side: showMinLabel labels the axis EXTENT minimum, not the first data
+# point, and a bar chart widens the extent by half a band to fit its bars - so
+# with twelve months selected the leftmost label read "Dec 24" over a bar that
+# was January 2025. A label that disagrees with its own bar is worse than a
+# missing one. Line charts need no band width, their extent hugs the data, which
+# is why only the bar charts showed it.
+#
+# So gate on the SIDE, not on the chart type. seriesType is in scope at both
+# call sites but under different minified names with several candidate bindings
+# each, and a patch that has to pick the right one of those would break silently
+# on the next Superset bump - which is exactly what the resolve-by-content
+# contract exists to prevent.
+#
+# Keep the explicit alignment only on the unrotated path: with a rotation
+# ECharts derives the anchor from the angle and forcing an alignment fights it.
+#
+# Same contract as the patches above - exactly one chunk carries the expression,
+# at exactly two call sites (the regular and the mixed Timeseries transforms).
+# An upstream change to either fails the build loudly.
+USER root
+RUN set -eu; \
+    needle='&&{showMaxLabel:!0,alignMaxLabel:"right"})'; \
+    matches="$(grep -F -l "$needle" /app/superset/static/assets/*.js || true)"; \
+    count="$(printf '%s\n' "$matches" | grep -c . || true)"; \
+    if [ "$count" -ne 1 ]; then \
+      echo "expected exactly 1 chunk with the time-axis edge-label expression, found $count: [$matches]" >&2; \
+      exit 1; \
+    fi; \
+    sites="$(grep -o -e '},[A-Za-z0-9_$]*&&{showMaxLabel:!0,alignMaxLabel:"right"})' "$matches" | grep -c . || true)"; \
+    if [ "$sites" -ne 2 ]; then \
+      echo "expected exactly 2 time-axis edge-label call sites, found $sites" >&2; \
+      exit 1; \
+    fi; \
+    perl -0777 -pi -e 's{axisLabel:([\w\$]+)\(\{hideOverlap:([\w\$]+)!==([\w\$]+\.[\w\$]+)\.Time\|\|0===([\w\$]+),formatter:([\w\$]+),rotate:\4,interval:([\w\$]+)\},[\w\$]+&&\{showMaxLabel:!0,alignMaxLabel:"right"\}\)}{axisLabel:$1({hideOverlap:$2!==$3.Time||0===$4,formatter:$5,rotate:$4,interval:$6},$2===$3.Time&&(0===$4?{showMaxLabel:!0,alignMaxLabel:"right"}:{showMaxLabel:!0}))}g' "$matches"; \
+    patched="$(grep -o -e ':{showMaxLabel:!0}))' "$matches" | grep -c . || true)"; \
+    leftover="$(grep -o -e '},[A-Za-z0-9_$]*&&{showMaxLabel:!0,alignMaxLabel:"right"})' "$matches" | grep -c . || true)"; \
+    minpinned="$(grep -o -e 'showMinLabel:!0' "$matches" | grep -c . || true)"; \
+    if [ "$patched" -ne 2 ] || [ "$leftover" -ne 0 ] || [ "$minpinned" -ne 0 ]; then \
+      echo "max-label patch did not apply cleanly: patched=$patched leftover=$leftover minpinned=$minpinned" >&2; \
+      exit 1; \
+    fi
+USER superset
+
+# Stop a time x-axis repeating the same label. Two distinct cases produce it,
+# both only when the labels are rotated:
+#   - the axis end lands mid-month, so the last month tick and the axis-extent
+#     label both render as e.g. "Apr '26", side by side;
+#   - zoomed inside a single month, every sub-month tick formats to the same
+#     month string.
+# Measured on a rotated monthly chart over 104 zoom windows (both slider
+# handles): 91 of them showed a repeat.
+#
+# The transform already carries a de-duplicating formatter for exactly this,
+# behind the same "no rotation" guard as the edge labels above, so widen it to
+# every time axis. It cannot be reused verbatim: upstream keeps the previous
+# label in a closure that outlives a single layout pass, and ECharts formats the
+# labels more than once per render, so a legitimate label whose text matches the
+# tail of the previous pass is blanked — that turns the repeat into a MISSING
+# month, which is worse. Keying the reset off the tick value instead (labels are
+# formatted in ascending order, so a value that does not advance means a new
+# pass has begun) survives repeated passes. Verified over the same 104 windows:
+# 0 repeats, and no window loses a month that upstream would have shown.
+#
+# Resolve-by-content with the same fail-loud contract as the patches above.
+USER root
+RUN set -eu; \
+    matches="$(grep -F -l '&&0===' /app/superset/static/assets/*.js | xargs grep -l -E '=[A-Za-z0-9_$]+===[A-Za-z0-9_$.]+\.Time&&0===[A-Za-z0-9_$]+,[A-Za-z0-9_$]+=[A-Za-z0-9_$]+\?\(' || true)"; \
+    count="$(printf '%s\n' "$matches" | grep -c . || true)"; \
+    if [ "$count" -ne 1 ]; then \
+      echo "expected exactly 1 chunk with the time-axis label formatter, found $count: [$matches]" >&2; \
+      exit 1; \
+    fi; \
+    sites="$(grep -o -E '=[A-Za-z0-9_$]+===[A-Za-z0-9_$.]+\.Time&&0===[A-Za-z0-9_$]+,[A-Za-z0-9_$]+=[A-Za-z0-9_$]+\?\(' "$matches" | grep -c . || true)"; \
+    if [ "$sites" -ne 2 ]; then \
+      echo "expected exactly 2 time-axis label formatter sites, found $sites" >&2; \
+      exit 1; \
+    fi; \
+    perl -0777 -pi -e 's{([\w\$]+)=([\w\$]+)===([\w\$]+\.[\w\$]+)\.Time&&0===([\w\$]+),([\w\$]+)=\1\?\(([\w\$]+)=([\w\$]+)=>\{let ([\w\$]+)="function"==typeof ([\w\$]+)\?\9\(\7\):String\(\7\);return \8===([\w\$]+)\?"":\(\10=\8,\8\)\},"function"==typeof \9&&"id"in \9&&\(\6\.id=\9\.id\),\6\):\9}{$1=$2===$3.Time&&0===$4,$5=$2===$3.Time?($6=$7=>{let $8="function"==typeof $9?$9($7):String($7),_n=+$7;if(!(_n>$6._pv))$6._pt=void 0;$6._pv=_n;return $8===$6._pt?"":($6._pt=$8,$8)},"function"==typeof $9&&"id"in $9&&($6.id=$9.id),$6):$9}g' "$matches"; \
+    applied="$(grep -o -e '_pt=void 0' "$matches" | grep -c . || true)"; \
+    leftover="$(grep -o -E '=[A-Za-z0-9_$]+===[A-Za-z0-9_$.]+\.Time&&0===[A-Za-z0-9_$]+,[A-Za-z0-9_$]+=[A-Za-z0-9_$]+\?\(' "$matches" | grep -c . || true)"; \
+    if [ "$applied" -ne 2 ] || [ "$leftover" -ne 0 ]; then \
+      echo "time-axis label dedupe did not apply: applied=$applied leftover=$leftover" >&2; \
+      exit 1; \
+    fi
+USER superset

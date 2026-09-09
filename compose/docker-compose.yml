@@ -525,6 +525,12 @@ services:
   # Superset web application
   # ---------------------------------------------------------------------------
   superset:
+    # Same build context as superset-init on purpose. Without this stanza
+    # `docker compose build superset` reports "No services to build" and exits 0,
+    # so a config or patch change appears to have been built when it has not.
+    build:
+      context: ../superset
+      dockerfile: Dockerfile
     image: soldevelo-reporting-stack/superset:latest
     hostname: superset
     restart: unless-stopped

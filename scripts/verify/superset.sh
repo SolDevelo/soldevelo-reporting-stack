@@ -120,9 +120,14 @@ sys.stderr.write("checked %d dashboards\n" % len(dashboards))
 PYEOF
   # not run through check(), which sends both streams to /dev/null: the whole
   # point of this one is the list of names it prints
+  # `|| rc=$?` is load-bearing: the script runs under `set -e`, and a bare
+  # assignment is not exempt from it. Without this the non-zero paths - which are
+  # the only ones that matter here - abort the script before the case runs, so the
+  # names never print and no summary is reached.
+  rc=0
   ORPHANS=$(SS_TOKEN="$TOKEN" SUPERSET_HOST="$SUPERSET_HOST" SUPERSET_PORT="$SUPERSET_PORT" \
-       python3 -c "$ORPHAN_PY" 2>&1)
-  case $? in
+       python3 -c "$ORPHAN_PY" 2>&1) || rc=$?
+  case $rc in
     0)
       echo "  PASS  No chart attached to a dashboard that does not lay it out"
       PASS=$((PASS + 1)) ;;
@@ -140,10 +145,12 @@ fi
 echo "-------------------------------"
 if [ "$WARN" -gt 0 ]; then
   echo "Results: ${PASS} passed, ${FAIL} failed, ${WARN} could not be checked"
+  echo "A check that could not run has lost whatever it was protecting against, so"
+  echo "this counts as a failure even though nothing was found."
 else
   echo "Results: ${PASS} passed, ${FAIL} failed"
 fi
 
-if [ "$FAIL" -gt 0 ]; then
+if [ "$FAIL" -gt 0 ] || [ "$WARN" -gt 0 ]; then
   exit 1
 fi

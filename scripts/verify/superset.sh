@@ -16,6 +16,7 @@ SUPERSET_PASS="${SUPERSET_ADMIN_PASSWORD:-changeme}"
 
 PASS=0
 FAIL=0
+WARN=0
 
 check() {
   local name="$1"
@@ -84,11 +85,29 @@ base = "http://%s:%s/api/v1" % (os.environ["SUPERSET_HOST"], os.environ["SUPERSE
 def get(u):
     req = urllib.request.Request(base + u, headers={"Authorization": "Bearer " + os.environ["SS_TOKEN"]})
     return json.load(urllib.request.urlopen(req))
+# exit 2 for "could not check", so the caller can tell an unreachable API from a real
+# finding. Reporting an infrastructure failure as a stray chart sends the reader
+# looking for a chart that does not exist.
+def api(u):
+    try:
+        return get(u)
+    except Exception as exc:
+        sys.stderr.write("could not query %s: %s: %s\n" % (u, type(exc).__name__, exc))
+        sys.exit(2)
+# page the listing: without this, an instance with more than one page is checked
+# only as far as the first, and reports a pass for the dashboards it never saw
+dashboards, page = [], 0
+while True:
+    batch = api("/dashboard/?q=(page_size:100,page:%d)" % page)["result"]
+    dashboards += batch
+    if len(batch) < 100:
+        break
+    page += 1
 stray = []
-for d in get("/dashboard/?q=(page_size:100)")["result"]:
-    detail = get("/dashboard/%s" % d["id"])["result"]
+for d in dashboards:
+    detail = api("/dashboard/%s" % d["id"])["result"]
     placed = set(int(x) for x in re.findall(r'"chartId":\s*(\d+)', detail.get("position_json") or ""))
-    for c in get("/dashboard/%s/charts" % d["id"])["result"]:
+    for c in api("/dashboard/%s/charts" % d["id"])["result"]:
         if c["id"] not in placed:
             stray.append("%s :: %s" % (d["dashboard_title"], c.get("slice_name")))
 if stray:
@@ -97,22 +116,33 @@ if stray:
         sys.stderr.write("          " + x + "\n")
     sys.stderr.write("        detach them, or delete the chart if no YAML declares it any more\n")
     sys.exit(1)
+sys.stderr.write("checked %d dashboards\n" % len(dashboards))
 PYEOF
   # not run through check(), which sends both streams to /dev/null: the whole
   # point of this one is the list of names it prints
-  if ORPHANS=$(SS_TOKEN="$TOKEN" SUPERSET_HOST="$SUPERSET_HOST" SUPERSET_PORT="$SUPERSET_PORT" \
-       python3 -c "$ORPHAN_PY" 2>&1); then
-    echo "  PASS  No chart attached to a dashboard that does not lay it out"
-    PASS=$((PASS + 1))
-  else
-    echo "  FAIL  No chart attached to a dashboard that does not lay it out"
-    echo "$ORPHANS" | sed 's/^/        /'
-    FAIL=$((FAIL + 1))
-  fi
+  ORPHANS=$(SS_TOKEN="$TOKEN" SUPERSET_HOST="$SUPERSET_HOST" SUPERSET_PORT="$SUPERSET_PORT" \
+       python3 -c "$ORPHAN_PY" 2>&1)
+  case $? in
+    0)
+      echo "  PASS  No chart attached to a dashboard that does not lay it out"
+      PASS=$((PASS + 1)) ;;
+    1)
+      echo "  FAIL  No chart attached to a dashboard that does not lay it out"
+      echo "$ORPHANS" | sed 's/^/        /'
+      FAIL=$((FAIL + 1)) ;;
+    *)
+      echo "  WARN  Could not check for stale chart attachments"
+      echo "$ORPHANS" | sed 's/^/        /'
+      WARN=$((WARN + 1)) ;;
+  esac
 fi
 
 echo "-------------------------------"
-echo "Results: ${PASS} passed, ${FAIL} failed"
+if [ "$WARN" -gt 0 ]; then
+  echo "Results: ${PASS} passed, ${FAIL} failed, ${WARN} could not be checked"
+else
+  echo "Results: ${PASS} passed, ${FAIL} failed"
+fi
 
 if [ "$FAIL" -gt 0 ]; then
   exit 1

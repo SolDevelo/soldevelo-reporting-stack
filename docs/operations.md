@@ -17,6 +17,22 @@ The reporting stack splits "platform setup" (light, idempotent) from "data build
 
 **Important:** Jenkins-style redeploy scripts should call `make setup` only. `make initial-dbt-build` is an explicit operator decision; running it on a redeploy is wasteful in the best case and a memory hazard in the worst (the `--full-refresh` scans every CDC event for the big incremental marts).
 
+### Superset image changes
+
+Anything that lives inside the Superset image rather than in the asset YAML needs
+the image rebuilt and the container recreated. That covers `superset_config.py`
+(registered colour schemes, feature flags) and the bundle patches under
+`superset/patches`. An asset import alone will not pick them up.
+
+    docker compose --env-file .env -f compose/docker-compose.yml build superset
+    docker compose --env-file .env -f compose/docker-compose.yml up -d --force-recreate superset
+
+The failure mode is quiet, which is why this has its own section: a dashboard that
+names a colour scheme the running image does not register does not error. The
+front end falls back to `supersetColors` and writes that back over the
+dashboard's metadata on first render, so the dashboard looks merely wrong rather
+than broken, and re-importing the assets does not fix it.
+
 ### Initial build sizing
 
 `make initial-dbt-build` is the heaviest dbt operation. On the Malawi dev instance (`r5.xlarge`, 4 vCPU / 32 GiB) the `mart_stock_status` full-refresh dominates: it scans every event in `stg_requisition_line_items` (~28.8 M events when last measured) and joins to every dimension. Two settings keep the build safe:

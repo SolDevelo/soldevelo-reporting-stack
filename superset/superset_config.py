@@ -49,6 +49,28 @@ EXTRA_SEQUENTIAL_COLOR_SCHEMES = [
     },
 ]
 
+# A categorical scheme identical to Superset's own, with slots 3 and 4 swapped so a
+# chart's third series lands on orange rather than green. Registered because outcome
+# colours cannot be pinned per series: chart-level `label_colors` is ignored in 6.1,
+# and a dashboard-level map is overwritten with {} by the front end on first render.
+# A dashboard's `color_scheme` also overrides its charts', so this is set on the
+# dashboard, which is why the palette stays inside the Superset family - only a third
+# series (orange) and a fourth (green) change against the default.
+# Used by the reporting-rate dashboards, where the third series is a deliberate skip:
+# green there reads as another good outcome, and a skip is neutral.
+EXTRA_CATEGORICAL_COLOR_SCHEMES = [
+    {
+        "id": "supersetColorsOutcome",
+        "label": "Superset Colors (outcome order)",
+        "colors": [
+            "#1FA8C9", "#454E7C", "#FF7F44", "#5AC189", "#666666",
+            "#E04355", "#FCC700", "#A868B7", "#3CCCCB", "#A38F79",
+            "#8FD3E4", "#A1A6BD", "#ACE1C4", "#FEC0A1", "#B2B2B2",
+            "#EFA1AA", "#FDE380", "#D3B3DA", "#9EE5E5", "#D1C6BC",
+        ],
+    },
+]
+
 # --- Embedding configuration ---
 # Allows adopter applications to embed Superset dashboards in iframes.
 # Set SUPERSET_EMBEDDING_ORIGINS in .env to a comma-separated list of allowed origins.

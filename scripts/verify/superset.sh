@@ -84,7 +84,11 @@ import json, os, re, sys, urllib.request
 base = "http://%s:%s/api/v1" % (os.environ["SUPERSET_HOST"], os.environ["SUPERSET_PORT"])
 def get(u):
     req = urllib.request.Request(base + u, headers={"Authorization": "Bearer " + os.environ["SS_TOKEN"]})
-    return json.load(urllib.request.urlopen(req))
+    # .read().decode(): urlopen yields bytes, and json.loads only accepts str
+    # before Python 3.6. UAT hosts run 3.5, where json.load(urlopen(...)) raises
+    # "the JSON object must be str, not 'bytes'" and the check silently degrades
+    # to a WARN on exactly the hosts it was written to protect.
+    return json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
 # exit 2 for "could not check", so the caller can tell an unreachable API from a real
 # finding. Reporting an infrastructure failure as a stray chart sends the reader
 # looking for a chart that does not exist.

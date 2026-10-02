@@ -376,7 +376,7 @@ The `make superset-import` step automatically syncs the allowed domains from `SU
 
 ### Guest token permissions
 
-The `superset/init-guest-permissions.py` script runs on every Superset startup and grants the **Public** role the permissions needed for guest token access (dashboard read, chart read, dataset read, etc.). No manual permission setup is required.
+The `superset/init-guest-permissions.py` script runs in the one-shot `superset-init` service on every stack start and grants the **Public** role the permissions needed for guest token access (dashboard read, chart read, dataset read, legacy chart data, etc.). No manual permission setup is required. Add new guest permissions to this script as well. A permission granted by hand to the Public role in the Superset UI lives only in the metadata database and is lost when that database is recreated.
 
 ### Troubleshooting
 
@@ -386,6 +386,7 @@ The `superset/init-guest-permissions.py` script runs on every Superset startup a
 | CORS error in browser console | `SUPERSET_EMBEDDING_ORIGINS` not set or wrong | Update `.env`, restart Superset |
 | "Failed to load Superset SDK" | Embedding origin can't reach Superset | Check network connectivity and `SUPERSET_URL` |
 | Guest token request fails (401) | Wrong admin credentials | Check `SUPERSET_ADMIN_USER` / `SUPERSET_ADMIN_PASSWORD` |
+| A chart shows "Access is Denied" only when embedded | The Public role lacks a permission the chart needs, e.g. `can_explore_json` on `Superset` for charts on the legacy data API such as Country Map | Add the permission to `superset/init-guest-permissions.py`, rebuild the Superset image and re-run `superset-init` |
 
 ## Author an analytics package
 

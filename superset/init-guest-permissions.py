@@ -30,6 +30,12 @@ PERMISSIONS = [
     ("can_read", "Explore"),
     ("can_read", "ExploreFormDataRestApi"),
     ("can_read", "SavedQuery"),
+    # Legacy chart data — charts still on the legacy data API (country_map, for
+    # example) load from POST /superset/explore_json/, which is gated by
+    # can_explore_json on Superset rather than by the Chart permissions above.
+    # Without it such a chart fails with 403 "Access is Denied" in an embedded
+    # dashboard while rendering normally inside Superset itself.
+    ("can_explore_json", "Superset"),
     # Current user — the Embedded SDK bootstraps by calling GET /api/v1/me/ and
     # /api/v1/me/roles/. Superset 6.x gates these behind CurrentUserRestApi, so
     # without this the guest role gets a 403 on embed startup and the dashboard

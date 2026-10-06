@@ -1,9 +1,11 @@
-# bullseye (Debian 11, glibc 2.31) predates clone3, so apt/pip/dbt all use the
-# old clone syscall and run under an outdated host seccomp profile. The default
-# slim tag now tracks Debian trixie (glibc 2.41), whose clone3 calls are
-# rejected (EPERM) by old profiles, breaking both the build and dbt at runtime.
-# Safe on modern hosts too; revisit when the dev host's Docker/OS is upgraded.
-FROM python:3.12-slim-bullseye
+# bookworm (Debian 12, LTS until June 2028). bullseye (Debian 11) reached end of
+# life in August 2026 and its security archive left the mirrors, so apt-get in
+# this image no longer works there. bookworm's glibc (2.36) uses clone3, which an
+# outdated host seccomp profile rejects (EPERM, e.g. Docker 19.03): the image does
+# not build there (apt-get fails) and docker build cannot take --security-opt on
+# Linux, so such hosts need a Docker engine upgrade. Modern engines (verified on
+# 20.10.21) build and run it unchanged.
+FROM python:3.12-slim-bookworm
 
 # git is required for dbt's Git package loading mode
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*

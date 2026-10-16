@@ -376,7 +376,7 @@ The `make superset-import` step automatically syncs the allowed domains from `SU
 
 ### Guest token permissions
 
-The `superset/init-guest-permissions.py` script runs in the one-shot `superset-init` service on every stack start and grants the **Public** role the permissions needed for guest token access (dashboard read, chart read, dataset read, legacy chart data, etc.). No manual permission setup is required. Add new guest permissions to this script as well. A permission granted by hand to the Public role in the Superset UI lives only in the metadata database and is lost when that database is recreated.
+The `superset/init-guest-permissions.py` script runs in the one-shot `superset-init` service on every stack start and grants the **Public** role the permissions needed for guest token access (dashboard read, chart read, dataset read, legacy chart data, chart downloads, etc.). No manual permission setup is required. Add new guest permissions to this script as well. A permission granted by hand to the Public role in the Superset UI lives only in the metadata database and is lost when that database is recreated.
 
 ### Troubleshooting
 
@@ -387,6 +387,7 @@ The `superset/init-guest-permissions.py` script runs in the one-shot `superset-i
 | "Failed to load Superset SDK" | Embedding origin can't reach Superset | Check network connectivity and `SUPERSET_URL` |
 | Guest token request fails (401) | Wrong admin credentials | Check `SUPERSET_ADMIN_USER` / `SUPERSET_ADMIN_PASSWORD` |
 | A chart shows "Access is Denied" only when embedded | The Public role lacks a permission the chart needs, e.g. `can_explore_json` on `Superset` for charts on the legacy data API such as Country Map | Add the permission to `superset/init-guest-permissions.py`, rebuild the Superset image and re-run `superset-init` |
+| A chart's `...` menu has no Download option only when embedded | The Public role lacks `can_csv` on `Superset` | Add the permission to `superset/init-guest-permissions.py`, rebuild the Superset image and re-run `superset-init` |
 
 ## Author an analytics package
 

@@ -5,6 +5,10 @@
 # Safe on modern hosts too; revisit when the dev host's Docker/OS is upgraded.
 FROM python:3.12-slim-bullseye
 
+# bullseye reached end of life in August 2026: its security pool left the
+# mirrors (the stale index still lists it, so apt-get gets 404s) and lives on
+# archive.debian.org.
+RUN sed -i 's|http://deb.debian.org/debian-security|http://archive.debian.org/debian-security|' /etc/apt/sources.list
 # git is required for dbt's Git package loading mode
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 # --progress-bar off: pip's rich progress bar starts a background thread

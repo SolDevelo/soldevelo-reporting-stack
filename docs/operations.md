@@ -92,6 +92,16 @@ make connector-status     # check task states
 make recover              # auto-fixes failed tasks
 ```
 
+### Airflow scheduler OOM-killed or unhealthy
+
+**Symptoms:** `airflow-scheduler` reports `unhealthy` during `make up`, the container restarts with exit 137, or a host alert (e.g. `HostOOMKill`) fires every few hours with an `oom-kill` line for the scheduler's cgroup in `journalctl -k`. Tasks orphaned by the kill are retried after the ~5-minute heartbeat timeout, so DAG runs usually still end green — the cost is a consumed retry and a delayed refresh.
+
+**Cause:** the LocalExecutor forks `AIRFLOW__CORE__PARALLELISM` worker processes. Airflow's default is 32; tasks rotate across idle workers and each keeps ~15 MB after its first task, so the idle footprint creeps up to ~650 MB. The `airflow jobs check` healthcheck (every 30 s, ~115 MB) then pushes the container over its 768m `mem_limit`. Hosts with swap absorb this by swapping; hosts without swap OOM-kill the largest process.
+
+**Fix:** the compose file defaults parallelism to `4`, which keeps the scheduler at ~310 MB idle and ~530 MB peak. If a deployment still runs 32 (an older compose file, or an override in `.env`), set `AIRFLOW__CORE__PARALLELISM=4` and recreate the scheduler with `make up`.
+
+**When to raise it:** parallelism caps how many tasks run at once across all DAGs; anything beyond the cap waits in `queued` rather than failing. Both platform DAGs (`platform_refresh`, `backfill`) are linear with `max_active_runs=1`, so at most 2 tasks are ever running. Raise the value only if you add DAGs, parallel branches, dynamic task mapping, or higher `max_active_runs` — and add ~20 MB of `mem_limit` per extra worker. dbt and the backfill export run in their own containers via the Docker socket, so their memory does not count here; the backfill `import_to_clickhouse` step does.
+
 ### Replication slot invalidated
 
 **What happens:** If the reporting stack was down for an extended period, PostgreSQL's `max_slot_wal_keep_size` (configured in source DB setup) invalidates the replication slot to protect disk space. CDC events during the gap are permanently lost from the stream; the source DB still has the correct current state.

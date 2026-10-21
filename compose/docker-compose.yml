@@ -387,6 +387,15 @@ services:
       # state in dbt/packages.yml and confusing the operator about what tried
       # to run. Task-level DAG retries (default_args.retries) still apply.
       AIRFLOW__CORE__MAX_TASK_RETRIES_ON_UNEXPECTED_EXIT: "0"
+      # LocalExecutor forks this many worker processes up front (Airflow
+      # default: 32). Tasks rotate across idle workers and each keeps ~15 MB
+      # after its first task, so 32 workers settle at ~650 MB idle — with the
+      # ~115 MB healthcheck probe on top, that hits mem_limit and the kernel
+      # OOM-kills a process on hosts without swap. Both platform DAGs are
+      # linear with max_active_runs=1, so at most 2 tasks ever run at once;
+      # 4 leaves headroom. Raise together with mem_limit if you add DAGs or
+      # parallel tasks — see docs/operations.md.
+      AIRFLOW__CORE__PARALLELISM: "${AIRFLOW__CORE__PARALLELISM:-4}"
       REPORTING_HOST_ROOT: "${REPORTING_HOST_ROOT:-}"
     user: "${AIRFLOW_UID:-50000}:0"
     # Supplementary group for the host's docker group so the airflow user

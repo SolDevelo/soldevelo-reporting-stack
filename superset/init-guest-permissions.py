@@ -36,6 +36,9 @@ PERMISSIONS = [
     # Without it such a chart fails with 403 "Access is Denied" in an embedded
     # dashboard while rendering normally inside Superset itself.
     ("can_explore_json", "Superset"),
+    # Downloads - the chart menu's Download submenu (CSV, Excel, image) is shown
+    # only with can_csv on Superset, and the CSV/Excel export endpoints check it too.
+    ("can_csv", "Superset"),
     # Current user — the Embedded SDK bootstraps by calling GET /api/v1/me/ and
     # /api/v1/me/roles/. Superset 6.x gates these behind CurrentUserRestApi, so
     # without this the guest role gets a 403 on embed startup and the dashboard

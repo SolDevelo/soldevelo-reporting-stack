@@ -247,6 +247,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 | [docs/operations.md](docs/operations.md) | Operational runbook: normal operation, failure recovery, monitoring |
 | [docs/runbook-add-tables.md](docs/runbook-add-tables.md) | Step-by-step: add new source tables to CDC via incremental snapshot |
 | [docs/runbook-slot-recovery.md](docs/runbook-slot-recovery.md) | Step-by-step: recover from replication-slot invalidation |
+| [docs/runbook-source-upgrade.md](docs/runbook-source-upgrade.md) | Step-by-step: detach and re-attach the pipeline around a source database major upgrade |
 | [docs/runbook-initial-load.md](docs/runbook-initial-load.md) | Step-by-step: bootstrap a new deployment via direct PG→ClickHouse export/import |
 | [docs/runbook-backfill.md](docs/runbook-backfill.md) | Step-by-step: targeted backfill of specific tables |
 | [docs/end-to-end-test.md](docs/end-to-end-test.md) | End-to-end test: OLMIS change → CDC → ClickHouse → dbt → Superset |

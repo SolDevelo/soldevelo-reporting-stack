@@ -1,16 +1,14 @@
 # Runbook: Source database major upgrade (PostgreSQL)
 
-A major version upgrade of the source PostgreSQL (for example 14 → 17, in place with `pg_upgrade`, as an
-RDS in-place upgrade, through an RDS Blue/Green deployment, or by dump/restore) always loses the Debezium
-replication slot: PostgreSQL only migrates logical slots when the *old* cluster is already 17 or newer, RDS
-refuses to upgrade while a logical slot exists, and a Blue/Green deployment refuses to be created when the
-blue instance has one ("external replication on the blue primary instance"). The publication and the
-`reporting_heartbeat` / `debezium_signal` tables survive every path except dump/restore.
+A major version upgrade of the source PostgreSQL (for example 14 → 17, in place with `pg_upgrade`, as an RDS in-place upgrade, through an RDS Blue/Green deployment, or by dump/restore) always loses the Debezium replication slot: PostgreSQL only migrates logical slots when the *old* cluster is already 17 or newer, RDS refuses to upgrade while a logical slot exists, and a Blue/Green deployment refuses to be created when the blue instance has one ("external replication on the blue primary instance"). The publication and the `reporting_heartbeat` / `debezium_signal` tables survive `pg_upgrade`, both RDS paths and a whole-database `pg_dump`; a filtered restore (per schema, `--schema`, a target database created from another init) may drop them, so step 1 of the re-attach verifies them on every path.
 
-This runbook keeps the pipeline consistent across the upgrade: no lost changes, no duplicates in the marts,
-and — if application writes are blocked for the duration — no re-snapshot. It was tested on a copy of the
-Malawi database (17 captured tables, 30 M `requisition_line_items`) against RDS and Docker sources
-(OLMIS-8422, November 2026).
+This runbook keeps the pipeline consistent across the upgrade: no lost changes, no duplicates in the marts, and — if application writes are blocked for the duration — no re-snapshot. It was tested on a copy of the Malawi database (17 captured tables, 30 M `requisition_line_items`) against RDS and Docker sources (OLMIS-8422, November 2026).
+
+## Prerequisites
+
+- Access to the Kafka Connect REST API (`localhost:8083` on the stack host) and `psql` on the source as a superuser or the replication role.
+- For re-attach A: the ability to block application writes from the slot drain until the new slot exists (stop the application containers, or the whole upgrade window is already a maintenance window).
+- The new cluster keeps the CDC parameters from [source-db-setup.md](source-db-setup.md): `wal_level = logical`, `max_replication_slots`, `max_wal_senders`, `max_slot_wal_keep_size`. `pg_upgrade` starts the new cluster from the new image's `initdb` defaults, not from the old `postgresql.conf` (in the test the upgraded cluster came up with `wal_level = replica`), and an RDS upgrade applies whatever parameter group you pick for the new version — check, do not assume.
 
 ## Two ways to re-attach
 
@@ -26,11 +24,9 @@ Both start with the same detach steps.
 
 ## Detach (before the upgrade)
 
-Do this after the application has been stopped (or put in a state where nothing writes to the captured
-tables) and before the database goes down.
+Do this after the application has been stopped (or put in a state where nothing writes to the captured tables) and before the database goes down.
 
-1. Stop the watchdog. It re-registers a missing connector within a minute, and the re-registered connector
-   will start a full snapshot the moment the database comes back — before you had a chance to choose.
+1. Stop the watchdog. It re-registers a missing connector within a minute, and the re-registered connector will start a full snapshot the moment the database comes back — before you had a chance to choose.
 
    ```bash
    docker compose --env-file .env -f compose/docker-compose.yml stop connect-watchdog
@@ -52,19 +48,17 @@ tables) and before the database goes down.
 
    Wait until `lag` is a few hundred bytes (the heartbeat keeps writing, it never reaches exactly zero).
 
-4. Stop the connector, **reset its offsets**, delete it:
+4. Stop the connector, wait until it is `STOPPED`, **reset its offsets**, delete it:
 
    ```bash
    C=http://localhost:8083/connectors/openlmis-postgres-cdc
-   curl -s -X PUT    $C/stop
-   curl -s -X DELETE $C/offsets        # "The Connect framework-managed offsets ... have been reset"
-   curl -s -X DELETE $C
+   curl -sf -X PUT $C/stop
+   until curl -s $C/status | grep -q '"state":"STOPPED"'; do sleep 1; done   # stop is asynchronous; offsets can only be reset on a STOPPED connector
+   curl -sf -X DELETE $C/offsets        # "The Connect framework-managed offsets ... have been reset"
+   curl -sf -X DELETE $C
    ```
 
-   Resetting the offsets is not optional. With the old offsets left in Kafka Connect, the re-registered
-   task fails immediately (`Last recorded offset is no longer available on the server`), creates no slot,
-   and every change made after the upgrade is silently missing from the pipeline until someone notices.
-   `make delete-connector` alone does **not** reset the offsets.
+   Resetting the offsets is not optional. With the old offsets left in Kafka Connect, the re-registered task fails immediately (`Last recorded offset is no longer available on the server`), creates no slot, and every change made after the upgrade is silently missing from the pipeline until someone notices. `make delete-connector` alone does **not** reset the offsets. `-f` makes a rejected reset (connector not yet `STOPPED`) exit non-zero instead of printing a JSON error and going on.
 
 5. Drop the slot on the source (RDS: required before the upgrade; Docker: it would be lost anyway):
 
@@ -72,20 +66,25 @@ tables) and before the database goes down.
    select pg_drop_replication_slot('debezium_reporting');
    ```
 
-Now upgrade the database (see the `openlmis/postgres` README for the upgrade itself).
+Now upgrade the database. The upgrade itself is described in the `openlmis/postgres` README, section "Upgrading PostgreSQL 14 → 17"; its step on detaching and re-attaching the reporting stack mirrors this runbook.
 
 ## Re-attach A — no re-snapshot
 
 Right after the database is back on the new version, **before application writes resume**:
 
-1. Confirm the CDC objects are still there; after a dump/restore re-apply the source init SQL
-   (`reporting-stack/init-db.sql` in ref-distro or its deployment-specific copy):
+1. Confirm the server parameters and the CDC objects:
 
    ```sql
+   show wal_level;                 -- logical
+   show max_replication_slots;     -- >= 2
+   show max_wal_senders;           -- >= 4
+   show max_slot_wal_keep_size;    -- what init-db.sql set, e.g. 2GB
    select count(*) from pg_publication_tables where pubname = 'dbz_publication';   -- expected: your allowlist + signal table
    select table_name from information_schema.tables
     where table_schema = 'public' and table_name in ('reporting_heartbeat', 'debezium_signal');
    ```
+
+   Wrong parameters: fix them first ([source-db-setup.md](source-db-setup.md); `wal_level` needs a restart; RDS: `rds.logical_replication = 1` and `max_slot_wal_keep_size` in the parameter group of the new version). Missing publication or tables: re-apply the source init SQL (`reporting-stack/init-db.sql` in ref-distro or its deployment-specific copy).
 
 2. Register the connector with `no_data`, so that the new slot is created now and nothing is snapshotted:
 
@@ -93,10 +92,7 @@ Right after the database is back on the new version, **before application writes
    DEBEZIUM_SNAPSHOT_MODE=no_data make register-connector
    ```
 
-   (`.env` values override the environment inside `register-connector.sh`; if `.env` sets
-   `DEBEZIUM_SNAPSHOT_MODE`, change it there for this step and revert afterwards.)
-   The log shows `According to the connector configuration no snapshot will be executed` and the slot is
-   `active` within seconds.
+   (`.env` values override the environment inside `register-connector.sh`; if `.env` sets `DEBEZIUM_SNAPSHOT_MODE`, change it there for this step and revert afterwards.) The log shows `According to the connector configuration no snapshot will be executed` and the slot is `active` within seconds.
 
 3. Resume application writes, start the watchdog, unpause the DAG, and verify:
 
@@ -106,49 +102,55 @@ Right after the database is back on the new version, **before application writes
    make verify-cdc && make reconcile
    ```
 
-   A change made now on the source must appear in the matching `raw.events_*` table within seconds, with
-   `op = 'u'`/`'c'` and **no** new `op = 'r'` rows.
+   A change made now on the source must appear in the matching `raw.events_*` table within seconds, with `op = 'u'`/`'c'` and **no** new `op = 'r'` rows.
+
+4. Put the stored connector config back to the default snapshot mode, so that the next watchdog re-registration or `make recover-slot` behaves as [operations.md](operations.md) describes (`when_needed` with valid offsets does not snapshot; `register-connector.sh` is a `PUT` on the existing connector):
+
+   ```bash
+   make register-connector            # DEBEZIUM_SNAPSHOT_MODE unset, .env reverted
+   ```
 
 ## Re-attach B — full re-snapshot
 
 Use when writes happened between the slot drain and the new slot, or whenever you are not sure:
 
 ```bash
-FORCE=1 make recover-slot        # drop slot, reset offsets, re-register, snapshot every captured table
-make initial-dbt-build           # incremental marts need --full-refresh after a re-snapshot
+FORCE=1 SKIP_DBT=1 make recover-slot   # drop slot, reset offsets, re-register, snapshot every captured table — no dbt yet
+# wait for the snapshot to finish: row counts in ClickHouse raw versus the source, per table
+make initial-dbt-build                 # dbt build --full-refresh
 make reconcile
 ```
 
-Then start the watchdog and unpause the DAG as above. The snapshot runs in the background after
-`recover-slot` returns; judge its end per table (row counts in ClickHouse versus the source), not by the
-connector state, which is `RUNNING` from the first second.
+`SKIP_DBT=1` matters: without it `recover-slot` runs `dbt build` right after the connector is registered, while the snapshot is still loading, and the incremental `mart_stock_status` keeps the rows built from that partial data until a `--full-refresh` (MW-1491). Judge the end of the snapshot per table (row counts in ClickHouse versus the source), not by the connector state, which is `RUNNING` from the first second; the tables finish minutes apart and `requisition_line_items` finishes last.
+
+Then start the watchdog and unpause the DAG as above.
 
 Consequences of every re-snapshot:
 
-- The raw tables are append-only, so each snapshot adds a full copy of every captured table. After three
-  snapshots of the Malawi data `raw.events_openlmis_requisition_requisition_line_items` held 92 M rows and
-  `stg_requisition_line_items` exceeded the 20 GiB per-query memory limit in ClickHouse. Either purge the
-  previous snapshot's rows (`ALTER TABLE raw.events_... DELETE WHERE op = 'r' AND _ingested_at < <start of
-  the latest snapshot>`), or lower `CLICKHOUSE_MAX_THREADS` / raise `CLICKHOUSE_MAX_MEMORY_USAGE` in
-  `.env` for the rebuild.
-- While the snapshot runs the slot is inactive and WAL accumulates on the source; with
-  `max_slot_wal_keep_size = 2GB` a long snapshot plus a Kafka hiccup invalidated the slot in the test
-  (`wal_status = lost`). Raise the limit for the duration of the snapshot on large databases.
+- The raw tables are append-only, so each snapshot adds a full copy of every captured table. After three snapshots of the Malawi data `raw.events_openlmis_requisition_requisition_line_items` held 92 M rows and `stg_requisition_line_items` exceeded the 20 GiB per-query memory limit in ClickHouse. Either purge the previous snapshot's rows (`ALTER TABLE raw.events_... DELETE WHERE op = 'r' AND _ingested_at < <start of the latest snapshot>`), or lower `CLICKHOUSE_MAX_THREADS` / raise `CLICKHOUSE_MAX_MEMORY_USAGE` in `.env` for the rebuild. The purge throws away the previous snapshot as a replay point (raw is otherwise the replay/debug history); the non-destructive alternative is to let `RAW_TTL_DAYS` expire it.
+- Each snapshot also lands in Kafka. With the compose defaults the broker keeps its log segments in `/tmp/kafka-logs` inside the container, not on the mounted volume (a platform defect, tracked separately); two Malawi snapshots filled a 400 GB disk in the test. Watch the stack host's disk during a re-snapshot.
+- While the snapshot runs the slot is inactive and WAL accumulates on the source; with `max_slot_wal_keep_size = 2GB` a long snapshot plus a Kafka hiccup invalidated the slot in the test (`wal_status = lost`). Raise the limit for the duration of the snapshot on large databases.
 
 ## RDS Blue/Green specifics
 
 - The slot must be gone before `create-blue-green-deployment`; the publication may stay.
-- Do not re-attach to the green instance; wait for the switchover (the endpoint name does not change) and
-  re-attach to it as in A or B.
-- Any large-object write on blue during the deployment degrades the replication and the deployment has to
-  be recreated — the OpenLMIS services that write large objects (hapifhir, dhis2-integration) must stay
-  down for the whole deployment, not only during the switchover.
+- The green instance gets the parameter group passed to `create-blue-green-deployment`: carry `rds.logical_replication = 1` and `max_slot_wal_keep_size` into the group for the new version, or no slot can be created after the switchover.
+- Do not re-attach to the green instance; wait for the switchover (the endpoint name does not change) and re-attach to it as in A or B.
+- Any large-object write on blue during the deployment degrades the replication and the deployment has to be recreated — the OpenLMIS services that write large objects (hapifhir, dhis2-integration) must stay down for the whole deployment, not only during the switchover.
+
+## Troubleshooting
+
+- **Task `FAILED` right after registering, `Last recorded offset is no longer available on the server`** — the offsets were not reset (detach step 4). Stop the connector, `DELETE /offsets`, delete it and register again. Changes made since the new cluster started are not in the pipeline unless writes were blocked; if they were not, switch to re-attach B.
+- **`wal_level` is `replica` after `pg_upgrade`, slot creation fails** — the new cluster did not inherit `postgresql.conf`. Set `wal_level = logical` and the other parameters from [source-db-setup.md](source-db-setup.md), restart PostgreSQL, register again.
+- **`wal_status = lost` during the re-snapshot** — retained WAL exceeded `max_slot_wal_keep_size` while the slot was inactive. Raise the limit (RDS: parameter group; self-hosted: `ALTER SYSTEM SET max_slot_wal_keep_size`) and run `recover-slot` again.
+- **`MEMORY_LIMIT_EXCEEDED` in `stg_*` during `initial-dbt-build`** — several snapshots in raw. Purge the previous snapshot's rows or tune `CLICKHOUSE_MAX_THREADS` / `CLICKHOUSE_MAX_MEMORY_USAGE` (see the consequences above).
 
 ## Checklist
 
 - [ ] watchdog stopped, DAG paused
-- [ ] slot drained, connector stopped, offsets reset, connector deleted, slot dropped
-- [ ] database upgraded, publication and heartbeat/signal tables present
-- [ ] connector registered with `no_data` before writes resumed (or `recover-slot` + `initial-dbt-build`)
+- [ ] slot drained, connector `STOPPED`, offsets reset, connector deleted, slot dropped
+- [ ] database upgraded; `wal_level = logical` and the other CDC parameters set; publication and heartbeat/signal tables present
+- [ ] connector registered with `no_data` before writes resumed (or `SKIP_DBT=1 recover-slot`, snapshot finished, `initial-dbt-build`)
 - [ ] new slot `active`, a test change visible in `raw.events_*` with no new `op = 'r'`
 - [ ] `make reconcile` green, watchdog started, DAG unpaused
+- [ ] `.env` reverted, connector config back to the default snapshot mode

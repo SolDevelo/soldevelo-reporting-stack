@@ -84,7 +84,7 @@ make setup
 
 This single command configures the entire pipeline end-to-end:
 - Waits for all services to be healthy
-- Registers the Debezium CDC connector (captures changes from your database)
+- Registers the Debezium CDC connector (captures changes from your database); the watchdog started by `make up` usually registers it within a minute already, without the publication preflight — `make setup` re-registers it and runs the checks
 - Creates ClickHouse databases and raw landing tables
 - Waits for initial data to arrive
 - Builds curated marts with dbt (analytics-ready tables)

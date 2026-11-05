@@ -7,6 +7,7 @@ This runbook keeps the pipeline consistent across the upgrade: no lost changes, 
 ## Prerequisites
 
 - Access to the Kafka Connect REST API (`localhost:8083` on the stack host) and `psql` on the source as a superuser or the replication role.
+- The source application runs with its production profile. A ref-distro instance on `spring_profiles_active=demo-data,refresh-db` recreates its schemas on every start: the connector sees mass deletes and inserts, and the recreated tables fall out of the publication. Switch it to `production` after the demo data is loaded, before attaching the stack.
 - For re-attach A: the ability to block application writes from the slot drain until the new slot exists (stop the application containers, or the whole upgrade window is already a maintenance window).
 - The new cluster keeps the CDC parameters from [source-db-setup.md](source-db-setup.md): `wal_level = logical`, `max_replication_slots`, `max_wal_senders`, `max_slot_wal_keep_size`. `pg_upgrade` starts the new cluster from the new image's `initdb` defaults, not from the old `postgresql.conf` (in the test the upgraded cluster came up with `wal_level = replica`), and an RDS upgrade applies whatever parameter group you pick for the new version — check, do not assume.
 
@@ -38,6 +39,8 @@ Do this after the application has been stopped (or put in a state where nothing 
    docker compose --env-file .env -f compose/docker-compose.yml exec airflow-scheduler airflow dags pause platform_refresh
    ```
 
+   `airflow dags pause` prints the state *before* the change (`is_paused | False` after a successful pause); confirm with `… exec airflow-scheduler airflow dags details platform_refresh | grep is_paused`.
+
 3. Let the connector drain the slot. On the source:
 
    ```sql
@@ -46,7 +49,7 @@ Do this after the application has been stopped (or put in a state where nothing 
      from pg_replication_slots where slot_name = 'debezium_reporting';
    ```
 
-   Wait until `lag` is a few hundred bytes (the heartbeat keeps writing, it never reaches exactly zero). On RDS the reading jumps: a WAL segment switch (`archive_timeout = 300`, 64 MB segments) moves `pg_current_wal_lsn` by up to 64 MB at once, and Debezium advances `confirmed_flush_lsn` only when it flushes its offsets, about once a minute, so the lag can show tens of MB and be back to a few hundred bytes a minute later. Wait for one such reading, not for a steady value; it took about two minutes in the RDS test.
+   Wait until `lag` is a few hundred bytes (the heartbeat keeps writing, it never reaches exactly zero). On RDS the reading jumps: a WAL segment switch (`archive_timeout = 300`, 64 MB segments) moves `pg_current_wal_lsn` by up to 64 MB at once, and Debezium advances `confirmed_flush_lsn` only when it flushes its offsets, about once a minute, so the lag can show tens of MB and be back to a few hundred bytes a minute later. Wait for one such reading, not for a steady value; it took about two minutes in the RDS test. Take readings for two minutes with the application stopped: a few hundred bytes means drained; a few kB that does not move is usually the last heartbeat batch before the next offset flush (about once a minute), so wait one more interval; tens of kB or more that never drop mean the task is not consuming — check `/status` and the Kafka broker before going on.
 
 4. Stop the connector, wait until it is `STOPPED`, **reset its offsets**, delete it:
 
@@ -65,6 +68,8 @@ Do this after the application has been stopped (or put in a state where nothing 
    ```sql
    select pg_drop_replication_slot('debezium_reporting');
    ```
+
+   Docker (ref-distro): `docker compose exec db psql -U postgres -d open_lmis -c "select pg_drop_replication_slot('debezium_reporting');"`. RDS: `psql -h <endpoint> -U <master user> -d <db>`.
 
 Now upgrade the database. The upgrade itself is described in the `openlmis/postgres` README, section "Upgrading PostgreSQL 14 → 17"; its step on detaching and re-attaching the reporting stack mirrors this runbook.
 
@@ -104,6 +109,8 @@ Right after the database is back on the new version, **before application writes
 
    A change made now on the source must appear in the matching `raw.events_*` table within seconds, with `op = 'u'`/`'c'` and **no** new `op = 'r'` rows.
 
+   Starting the application with the ref-distro overlay re-runs `reporting-stack-init`, which sets the publication back to the table list in `reporting-stack/init-db.sql`: a table added by hand (operations.md, "Adding a new source table") drops out of CDC silently, and `verify-cdc` and `reconcile` stay green. Re-run the `pg_publication_tables` count from step 1 once the application is up, and keep every addition in `init-db.sql`.
+
 4. Put the stored connector config back to the default snapshot mode, so that the next watchdog re-registration or `make recover-slot` behaves as [operations.md](operations.md) describes (`when_needed` with valid offsets does not snapshot; `register-connector.sh` is a `PUT` on the existing connector):
 
    ```bash
@@ -120,6 +127,15 @@ FORCE=1 SKIP_DBT=1 make recover-slot   # drop slot, reset offsets, re-register, 
 make initial-dbt-build                 # dbt build --full-refresh
 make reconcile
 ```
+
+`recover-slot` also works when the slot and the connector are already gone after the detach (`Slot does not exist. Recovery will re-create it from scratch`, `Connector not registered — skipping delete`). Snapshot progress per table, in ClickHouse against the source:
+
+```sql
+select countIf(op = 'r' and _ingested_at >= '<UTC time recover-slot started>') from raw.events_openlmis_<schema>_<table>;  -- ClickHouse
+select count(*) from <schema>.<table>;                                                                                    -- source
+```
+
+for every table in the allowlist; `requisition_line_items` finishes last.
 
 `SKIP_DBT=1` matters: without it `recover-slot` runs `dbt build` right after the connector is registered, while the snapshot is still loading, and the incremental `mart_stock_status` keeps the rows built from that partial data until a `--full-refresh` (MW-1491). Judge the end of the snapshot per table (row counts in ClickHouse versus the source), not by the connector state, which is `RUNNING` from the first second; the tables finish minutes apart and `requisition_line_items` finishes last.
 
@@ -153,4 +169,5 @@ Consequences of every re-snapshot:
 - [ ] connector registered with `no_data` before writes resumed (or `SKIP_DBT=1 recover-slot`, snapshot finished, `initial-dbt-build`)
 - [ ] new slot `active`, a test change visible in `raw.events_*` with no new `op = 'r'`
 - [ ] `make reconcile` green, watchdog started, DAG unpaused
+- [ ] after re-attach B: the marts `reconcile` does not cover (`logistics_summary`, `reporting_status`, `non_reporting_facilities`) have `count()` equal to `uniqExact(<primary key>)`
 - [ ] `.env` reverted, connector config back to the default snapshot mode

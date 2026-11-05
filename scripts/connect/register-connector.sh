@@ -207,8 +207,19 @@ HTTP_CODE=$(curl -s -o "$TMPFILE" -w "%{http_code}" \
   "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/config")
 
 echo "HTTP $HTTP_CODE"
-cat "$TMPFILE"
-echo
+# The response echoes the whole config, including database.password; mask it before it lands in a terminal log
+python3 - "$TMPFILE" <<'PY'
+import json, sys
+raw = open(sys.argv[1]).read()
+try:
+    body = json.loads(raw)
+    for key in list(body.get("config", {})):
+        if "password" in key.lower():
+            body["config"][key] = "***"
+    print(json.dumps(body, indent=2))
+except ValueError:
+    print(raw)
+PY
 
 if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
   echo "Connector registered successfully."

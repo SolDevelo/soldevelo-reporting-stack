@@ -46,7 +46,7 @@ Do this after the application has been stopped (or put in a state where nothing 
      from pg_replication_slots where slot_name = 'debezium_reporting';
    ```
 
-   Wait until `lag` is a few hundred bytes (the heartbeat keeps writing, it never reaches exactly zero).
+   Wait until `lag` is a few hundred bytes (the heartbeat keeps writing, it never reaches exactly zero). On RDS the reading jumps: a WAL segment switch (`archive_timeout = 300`, 64 MB segments) moves `pg_current_wal_lsn` by up to 64 MB at once, and Debezium advances `confirmed_flush_lsn` only when it flushes its offsets, about once a minute, so the lag can show tens of MB and be back to a few hundred bytes a minute later. Wait for one such reading, not for a steady value; it took about two minutes in the RDS test.
 
 4. Stop the connector, wait until it is `STOPPED`, **reset its offsets**, delete it:
 
@@ -112,7 +112,7 @@ Right after the database is back on the new version, **before application writes
 
 ## Re-attach B — full re-snapshot
 
-Use when writes happened between the slot drain and the new slot, or whenever you are not sure:
+Use when writes happened between the slot drain and the new slot, whenever you are not sure, and always after the source was rolled back to a pre-upgrade snapshot (ClickHouse then holds changes the restored database never saw, so only a re-snapshot is consistent):
 
 ```bash
 FORCE=1 SKIP_DBT=1 make recover-slot   # drop slot, reset offsets, re-register, snapshot every captured table — no dbt yet

@@ -143,7 +143,7 @@ Networking: the `reporting-shared` Docker network is created by the ref-distro o
 - `docs/source-db-setup.md` — source database configuration, WAL safety, network setup
 - `docs/usage-guide.md` — practical how-tos: add tables, dbt models, Superset charts, author packages
 - `docs/operations.md` — operational runbook (normal ops, failure recovery, monitoring)
-- `docs/runbook-add-tables.md`, `docs/runbook-slot-recovery.md`, `docs/runbook-initial-load.md`, `docs/runbook-backfill.md` — task-specific runbooks
+- `docs/runbook-add-tables.md`, `docs/runbook-slot-recovery.md`, `docs/runbook-initial-load.md`, `docs/runbook-backfill.md`, `docs/runbook-source-upgrade.md` — task-specific runbooks
 
 ## Implementation Status
 

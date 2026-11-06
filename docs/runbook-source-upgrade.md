@@ -6,6 +6,7 @@ This runbook keeps the pipeline consistent across the upgrade: no lost changes, 
 
 ## Prerequisites
 
+- Debezium 3.5.0.Final (pinned in `connect/Dockerfile`) on Kafka Connect 8.2 streams from PostgreSQL 17 with `pgoutput`; tested in OLMIS-8422 on 17.11.
 - Access to the Kafka Connect REST API (`localhost:8083` on the stack host) and `psql` on the source as a superuser or the replication role.
 - The source application runs with its production profile. A ref-distro instance on `spring_profiles_active=demo-data,refresh-db` recreates its schemas on every start: the connector sees mass deletes and inserts, and the recreated tables fall out of the publication. Switch it to `production` after the demo data is loaded, before attaching the stack.
 - For re-attach A: the ability to block application writes from the slot drain until the new slot exists (stop the application containers, or the whole upgrade window is already a maintenance window).
@@ -17,7 +18,7 @@ This runbook keeps the pipeline consistent across the upgrade: no lost changes, 
 |---|---|---|
 | Precondition | application writes blocked from the slot drain until the new slot exists | none |
 | Captures changes made between drop and re-register | not applicable (there are none) | yes, as a fresh snapshot of the current state — after the raw tables have been truncated, otherwise rows deleted in the meantime stay in the marts |
-| Time after the database is back | ~20 s | 30–60 min for the Malawi tables, then `initial-dbt-build` |
+| Time after the database is back | ~20 s | 30–65 min for the Malawi tables, then `initial-dbt-build` |
 | Raw tables | unchanged | one more full copy (`op = 'r'`) per table |
 | When to use | planned upgrade window, writes stopped anyway | writes could not be blocked, or something went wrong |
 
@@ -56,13 +57,12 @@ Do this after the application has been stopped (or put in a state where nothing 
    ```bash
    C=http://localhost:8083/connectors/openlmis-postgres-cdc
    curl -sf -X PUT $C/stop
-   curl -sf $C/status >/dev/null || { echo "no such connector"; exit 1; }    # a connector that is already gone makes the loop below spin forever
+   curl -sf $C/status >/dev/null || echo "no such connector — stop here"   # a connector that is already gone makes the loop below spin forever
    for i in $(seq 60); do curl -s $C/status | grep -q '"state":"STOPPED"' && break; sleep 1; done   # stop is asynchronous; offsets can only be reset on a STOPPED connector
-   curl -sf -X DELETE $C/offsets        # "The Connect framework-managed offsets ... have been reset"
-   curl -sf -X DELETE $C
+   curl -sfS -X DELETE $C/offsets && curl -sfS -X DELETE $C   # "The Connect framework-managed offsets ... have been reset"; the connector is deleted only after the reset succeeded
    ```
 
-   Resetting the offsets is not optional. With the old offsets left in Kafka Connect, the re-registered task fails immediately (`Last recorded offset is no longer available on the server`), creates no slot, and every change made after the upgrade is silently missing from the pipeline until someone notices. `make delete-connector` alone does **not** reset the offsets. `-f` makes a rejected reset (connector not yet `STOPPED`) exit non-zero instead of printing a JSON error and going on.
+   Resetting the offsets is not optional. With the old offsets left in Kafka Connect, the re-registered task fails immediately (`Last recorded offset is no longer available on the server`), creates no slot, and every change made after the upgrade is silently missing from the pipeline until someone notices. `make delete-connector` alone does **not** reset the offsets. The `&&` matters: a rejected reset (connector not yet `STOPPED`) must not be followed by the delete, or the stale offsets stay in Kafka Connect; `-S` prints the error that `-s` would otherwise hide. `-f` makes a rejected reset (connector not yet `STOPPED`) exit non-zero instead of printing a JSON error and going on.
 
 5. Drop the slot on the source (RDS: required before the upgrade; Docker: it would be lost anyway):
 

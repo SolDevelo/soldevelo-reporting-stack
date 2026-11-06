@@ -217,7 +217,7 @@ try:
         if "password" in key.lower():
             body["config"][key] = "***"
     print(json.dumps(body, indent=2))
-except ValueError:
+except (ValueError, AttributeError):
     print(raw)
 PY
 

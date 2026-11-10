@@ -85,12 +85,13 @@ Right after the database is back on the new version, **before application writes
    show max_replication_slots;     -- >= 2
    show max_wal_senders;           -- >= 4
    show max_slot_wal_keep_size;    -- what init-db.sql set, e.g. 2GB
-   select count(*) from pg_publication_tables where pubname = 'dbz_publication';   -- expected: your allowlist + signal table
+   select count(*) from pg_publication_tables where pubname = 'dbz_publication';   -- expected: your allowlist + signal table + heartbeat table
+   select count(*) from pg_publication_tables where pubname = 'dbz_publication' and tablename = 'reporting_heartbeat';   -- 1
    select table_name from information_schema.tables
     where table_schema = 'public' and table_name in ('reporting_heartbeat', 'debezium_signal');
    ```
 
-   Wrong parameters: fix them first ([source-db-setup.md](source-db-setup.md); `wal_level` needs a restart; RDS: `rds.logical_replication = 1` and `max_slot_wal_keep_size` in the parameter group of the new version). Missing publication or tables: re-apply the source init SQL (`reporting-stack/init-db.sql` in ref-distro or its deployment-specific copy).
+   Wrong parameters: fix them first ([source-db-setup.md](source-db-setup.md); `wal_level` needs a restart; RDS: `rds.logical_replication = 1` and `max_slot_wal_keep_size` in the parameter group of the new version). Missing publication or tables: re-apply the source init SQL (`reporting-stack/init-db.sql` in ref-distro or its deployment-specific copy). Heartbeat table missing from the publication: add it there too (`ALTER PUBLICATION dbz_publication ADD TABLE public.reporting_heartbeat`) — harmless on 14, required from 15 on, where the slot otherwise stops advancing on an idle database ([source-db-setup.md](source-db-setup.md), "What the heartbeat table does").
 
 2. Register the connector with `no_data`, so that the new slot is created now and nothing is snapshotted:
 

@@ -33,6 +33,8 @@ For databases not managed by the ref-distro overlay, run the following SQL:
 ```sql
 -- 1. Heartbeat table — Debezium writes to this periodically to advance the
 --    replication slot, preventing WAL bloat during idle periods.
+--    It must be in the publication: from PostgreSQL 15 on, pgoutput skips transactions
+--    that touch no published table, so a heartbeat outside it no longer advances the slot.
 CREATE TABLE IF NOT EXISTS public.reporting_heartbeat (
   id  INT PRIMARY KEY DEFAULT 1,
   ts  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -50,10 +52,11 @@ CREATE TABLE IF NOT EXISTS public.debezium_signal (
 );
 
 -- 3. Publication — the signal table MUST be included (the connector won't
---    receive signal events otherwise). Adjust the data-table list to match
---    your deployment.
+--    receive signal events otherwise), and so must the heartbeat table (see
+--    above). Adjust the data-table list to match your deployment.
 CREATE PUBLICATION dbz_publication FOR TABLE
   public.debezium_signal,
+  public.reporting_heartbeat,
   referencedata.facilities,
   referencedata.programs,
   referencedata.geographic_zones,
@@ -170,6 +173,8 @@ The ref-distro `init-db.sql` sets this to `2GB` by default. **Production deploym
 ### What the heartbeat table does (and doesn't do)
 
 The `reporting_heartbeat` table prevents WAL bloat during **idle periods** — when no writes happen to captured tables, the replication slot doesn't advance, and WAL accumulates even though there's nothing new. Debezium's heartbeat writes periodically advance the slot.
+
+This works only with the heartbeat table **in the publication**. Up to PostgreSQL 14 pgoutput sends an empty transaction for every heartbeat and Debezium confirms its LSN even when the table is not published; from PostgreSQL 15 on, transactions that touch no published table are skipped, so on an idle database the slot stops advancing, WAL piles up and the slot is invalidated once it passes `max_slot_wal_keep_size` (seen on an RDS 17 instance after about 2.5 hours: RDS closes a 64 MB WAL segment every `archive_timeout` = 5 min even without writes). The table is not in `SOURCE_PG_TABLE_ALLOWLIST`, so nothing from it lands in ClickHouse.
 
 The heartbeat **does NOT help** when the reporting stack is down. If the consumer isn't running, heartbeat writes don't happen, and `max_slot_wal_keep_size` is the only protection.
 

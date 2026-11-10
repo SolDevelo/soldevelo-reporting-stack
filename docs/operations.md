@@ -118,6 +118,10 @@ Interactive by default — confirms the slot is actually invalidated and prompts
 
 Full procedure including troubleshooting and prevention: [runbook-slot-recovery.md](runbook-slot-recovery.md).
 
+### Source database major upgrade
+
+A PostgreSQL major upgrade (pg_upgrade, RDS in-place, Blue/Green) drops the replication slot and, with stale Connect offsets, leaves the re-registered connector FAILED. Follow [runbook-source-upgrade.md](runbook-source-upgrade.md): stop the watchdog, drain, stop + reset offsets + delete the connector, drop the slot, upgrade, check `wal_level` and the publication on the new cluster, re-register with `snapshot.mode=no_data` before writes resume (or `SKIP_DBT=1 make recover-slot` if they could not be blocked).
+
 ### Adding a new source table
 
 ```bash

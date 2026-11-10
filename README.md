@@ -84,7 +84,7 @@ make setup
 
 This single command configures the entire pipeline end-to-end:
 - Waits for all services to be healthy
-- Registers the Debezium CDC connector (captures changes from your database)
+- Registers the Debezium CDC connector (captures changes from your database); the watchdog started by `make up` usually registers it within a minute already, without the publication preflight — `make setup` re-registers it and runs the checks
 - Creates ClickHouse databases and raw landing tables
 - Waits for initial data to arrive
 - Builds curated marts with dbt (analytics-ready tables)
@@ -247,6 +247,7 @@ examples/          Reference analytics packages (OLMIS core + Malawi extension)
 | [docs/operations.md](docs/operations.md) | Operational runbook: normal operation, failure recovery, monitoring |
 | [docs/runbook-add-tables.md](docs/runbook-add-tables.md) | Step-by-step: add new source tables to CDC via incremental snapshot |
 | [docs/runbook-slot-recovery.md](docs/runbook-slot-recovery.md) | Step-by-step: recover from replication-slot invalidation |
+| [docs/runbook-source-upgrade.md](docs/runbook-source-upgrade.md) | Step-by-step: detach and re-attach the pipeline around a source database major upgrade |
 | [docs/runbook-initial-load.md](docs/runbook-initial-load.md) | Step-by-step: bootstrap a new deployment via direct PG→ClickHouse export/import |
 | [docs/runbook-backfill.md](docs/runbook-backfill.md) | Step-by-step: targeted backfill of specific tables |
 | [docs/end-to-end-test.md](docs/end-to-end-test.md) | End-to-end test: OLMIS change → CDC → ClickHouse → dbt → Superset |

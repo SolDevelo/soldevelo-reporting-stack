@@ -211,9 +211,56 @@ For production deployments, monitor these signals:
 | Replication slot status | `pg_replication_slots.wal_status` | `lost` = immediate action |
 | ClickHouse freshness | `max(_ingested_at)` in raw tables | Older than expected refresh interval |
 | Airflow DAG status | `platform_refresh` DAG failures | Any failure = investigate |
-| Kafka consumer lag | ClickHouse Kafka Engine consumer group | Growing lag = ClickHouse falling behind |
+| Kafka consumer lag | ClickHouse Kafka Engine consumer group | Growing lag = ClickHouse falling behind; lag older than `KAFKA_LOG_RETENTION_HOURS` = events lost |
+| Kafka disk usage | `du -sh /var/lib/kafka/data` in the `kafka` container (`docker system df -v` shows the apparent size, inflated by sparse 10 MB index files per partition) | Bounded by topic retention; grows with re-snapshots |
+| Connector without tasks | `/connectors/<name>/status` with state `UNASSIGNED` or an empty `tasks` list | The watchdog only acts on `FAILED` — alert |
 
 The Airflow `platform_refresh` DAG includes a freshness gate — if raw data is stale (older than `FRESHNESS_MAX_AGE_MINUTES`, default 60), it skips the dbt build to avoid serving stale curated data.
+
+## Upgrade notes
+
+### Kafka logs moved to the `kafka_data` volume
+
+Earlier versions did not set `KAFKA_LOG_DIRS`, so the broker kept every topic in `/tmp/kafka-logs` inside the container: the `kafka_data` volume stayed empty, the data was lost whenever the container was recreated, and its growth showed up under "Containers" in `docker system df`, not under volumes. The broker now writes to the volume and topics are pruned after `KAFKA_LOG_RETENTION_HOURS` (default 72).
+
+**What a plain `make up` does on an existing deployment:** it recreates `kafka` with an empty log while `kafka-connect` and `clickhouse` keep running. The worker loses its internal topics (`_connect-configs`, `_connect-offsets`, `_connect-status`), auto-creates them again without `cleanup.policy=compact`, and the connector stays `UNASSIGNED` with no tasks. The ClickHouse Kafka consumers stay without partition assignments until ClickHouse is restarted. The watchdog reacts to neither, so CDC stops silently. Data already in ClickHouse is not affected.
+
+**Rollout without a re-snapshot.** The replication slot keeps its position while Kafka is replaced, so the connector can resume from it with `snapshot.mode=no_data`. The condition is that ClickHouse has consumed everything first: events the slot has already confirmed but ClickHouse has not read are lost with the old broker.
+
+```bash
+dc() { docker compose --env-file .env -f compose/docker-compose.yml "$@"; }  # add -f <overlay> if you use COMPOSE_OVERLAY
+CONNECTOR=openlmis-postgres-cdc  # DEBEZIUM_CONNECTOR_NAME, if set
+
+# 1. Stop the watchdog, then wait until ClickHouse has read everything (must print 0)
+dc stop connect-watchdog
+dc exec kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --all-groups \
+  | awk '$6 ~ /^[0-9]+$/ {s+=$6} END {print s+0}'
+
+# 2. Stop the connector (the slot keeps its position), then Kafka Connect
+curl -sfS -X PUT "localhost:${CONNECT_PORT:-8083}/connectors/$CONNECTOR/stop"
+until curl -s "localhost:${CONNECT_PORT:-8083}/connectors/$CONNECTOR/status" | grep -q '"state":"STOPPED"'; do sleep 2; done
+dc stop kafka-connect
+
+# 3. Update the checkout, recreate only the broker, then reconnect ClickHouse and start Kafka Connect on it
+dc up -d --wait --no-deps kafka
+dc restart clickhouse                     # its Kafka consumers do not recover from the broker swap on their own
+dc up -d --wait --no-deps kafka-connect   # GET /connectors now returns []
+
+# 4. Re-attach from the slot, wait until the first offset is committed, return to the default snapshot mode
+DEBEZIUM_SNAPSHOT_MODE=no_data make register-connector
+until curl -s "localhost:${CONNECT_PORT:-8083}/connectors/$CONNECTOR/offsets" | grep -q lsn; do sleep 5; done
+make register-connector
+
+# 5. Start the rest (watchdog included) and check
+make up
+make verify-cdc verify-ingestion
+```
+
+`DEBEZIUM_SNAPSHOT_MODE=no_data` on the command line only takes effect if `.env` does not set `DEBEZIUM_SNAPSHOT_MODE`. Wait for the offset in step 4 before going back to the default mode: `when_needed` without a stored offset runs a full snapshot. Afterwards `ls /var/lib/kafka/data` in the `kafka` container lists the CDC topics and `/tmp` holds no Kafka logs.
+
+**Already ran `make up` and the connector is `UNASSIGNED`:** run `dc stop connect-watchdog kafka-connect`, delete the three topics `_connect-configs`, `_connect-offsets` and `_connect-status` (`dc exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic <name>`), then continue from step 3 with `dc restart clickhouse` and `dc up -d --wait --no-deps kafka-connect`. The slot has kept its position since the old broker went away, so nothing written in the meantime is lost unless the slot was invalidated (`wal_status = lost`).
+
+**Fallback:** if the lag in step 1 cannot reach 0 or the slot is lost, run a full re-snapshot with `FORCE=1 make recover-slot` ([runbook-slot-recovery.md](runbook-slot-recovery.md)), wait until the snapshot has finished and then run `make initial-dbt-build`. A throwaway environment can simply be recreated with `make reset`.
 
 ## Planned version upgrades
 

@@ -62,6 +62,9 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      # Topics are a buffer in front of ClickHouse raw; retention only has to outlast a consumer outage
+      KAFKA_LOG_RETENTION_HOURS: "${KAFKA_LOG_RETENTION_HOURS:-72}"
+      KAFKA_LOG_RETENTION_BYTES: "${KAFKA_LOG_RETENTION_BYTES:--1}"
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q ApiVersion"]
       interval: 10s

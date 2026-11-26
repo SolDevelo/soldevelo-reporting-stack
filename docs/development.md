@@ -74,6 +74,8 @@ The raw landing layer has several optional settings (all have sensible defaults)
 |---|---|---|
 | `RAW_KAFKA_TOPICS` | derived from `SOURCE_PG_TABLE_ALLOWLIST` | Explicit comma-separated list of Kafka topic names to ingest |
 | `RAW_TTL_DAYS` | `90` | Retention period in days for `raw.events_*` tables. Set to `0` to disable TTL |
+| `KAFKA_LOG_RETENTION_HOURS` | `72` | Retention of Kafka topics. Must outlast the longest ClickHouse consumer outage — events deleted before ClickHouse reads them need a re-snapshot (`make recover-slot`) |
+| `KAFKA_LOG_RETENTION_BYTES` | `-1` | Per-partition size cap for Kafka topics (`-1` = none). A cap below the consumer lag drops unread events |
 | `CLICKHOUSE_HOST_EXTERNAL` | `localhost` | Override `CLICKHOUSE_HOST` for host-side scripts (useful for remote ClickHouse deployments) |
 
 TTL is applied per-table at creation time. Changing `RAW_TTL_DAYS` only affects newly created tables — existing tables retain their original TTL. To update TTL on existing tables, run:

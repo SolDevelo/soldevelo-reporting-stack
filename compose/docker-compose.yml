@@ -46,6 +46,8 @@ services:
     environment:
       # Cluster ID (used by the image's KafkaDockerWrapper to format storage on first run)
       CLUSTER_ID: "soldevelo-reporting-stack"
+      # The image defaults to a directory in the container layer, outside the volume
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
       # KRaft
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: "broker,controller"

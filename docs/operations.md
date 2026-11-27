@@ -211,9 +211,61 @@ For production deployments, monitor these signals:
 | Replication slot status | `pg_replication_slots.wal_status` | `lost` = immediate action |
 | ClickHouse freshness | `max(_ingested_at)` in raw tables | Older than expected refresh interval |
 | Airflow DAG status | `platform_refresh` DAG failures | Any failure = investigate |
-| Kafka consumer lag | ClickHouse Kafka Engine consumer group | Growing lag = ClickHouse falling behind |
+| Kafka consumer lag | ClickHouse Kafka Engine consumer group | Growing lag = ClickHouse falling behind; lag older than `KAFKA_LOG_RETENTION_HOURS` = events lost |
+| Kafka disk usage | `du -sh /var/lib/kafka/data` in the `kafka` container (`docker system df -v` shows the apparent size, inflated by sparse 10 MB index files per partition) | Bounded by topic retention; grows with re-snapshots |
+| Connector without tasks | `/connectors/<name>/status` with state `UNASSIGNED` or an empty `tasks` list | The watchdog only acts on `FAILED` tasks or a missing connector — alert |
 
 The Airflow `platform_refresh` DAG includes a freshness gate — if raw data is stale (older than `FRESHNESS_MAX_AGE_MINUTES`, default 60), it skips the dbt build to avoid serving stale curated data.
+
+## Upgrade notes
+
+### Kafka logs moved to the `kafka_data` volume
+
+Earlier versions did not set `KAFKA_LOG_DIRS`, so the broker kept every topic in `/tmp/kafka-logs` inside the container: the `kafka_data` volume stayed empty, the data was lost whenever the container was recreated, and its growth showed up under "Containers" in `docker system df`, not under volumes. The broker now writes to the volume and deletes closed log segments older than `KAFKA_LOG_RETENTION_HOURS` (default 72). A segment closes at 1 GiB or after 7 days, so a re-snapshot is pruned within the retention window while a quiet topic can keep its data for up to 7 days plus the retention.
+
+**What a plain `make up` does on an existing deployment:** it recreates `kafka` with an empty log while `kafka-connect` and `clickhouse` keep running. The worker loses its internal topics (`_connect-configs`, `_connect-offsets`, `_connect-status`), auto-creates them again without `cleanup.policy=compact`, and the connector stays `UNASSIGNED` with no tasks. The ClickHouse Kafka consumers stay without partition assignments until ClickHouse is restarted. The watchdog reacts to neither, so CDC stops silently. Events ClickHouse had not consumed before the swap are lost with the old broker.
+
+**Rollout without a re-snapshot.** The replication slot keeps its position while Kafka is replaced, so the connector can resume from it with `snapshot.mode=no_data`. The condition is that ClickHouse has consumed everything first: events the slot has already confirmed but ClickHouse has not read are lost with the old broker. That is why the connector is stopped before the lag check, and the block does not continue until the lag is 0.
+
+Update the checkout to the new version first, then run the block from the repository root (it reads `.env`):
+
+```bash
+set -a; . ./.env; set +a
+dc() { docker compose --env-file .env -f compose/docker-compose.yml "$@"; }  # add -f <overlay> if you use COMPOSE_OVERLAY
+CONNECTOR=openlmis-postgres-cdc  # "name" in $ANALYTICS_CORE_PATH/connect/*.json
+CONNECT="localhost:${CONNECT_PORT:-8083}"
+
+# 1. Stop the watchdog and the connector; from here on nothing new reaches Kafka (the slot keeps its position)
+dc stop connect-watchdog
+curl -sfS -X PUT "$CONNECT/connectors/$CONNECTOR/stop"
+until curl -s "$CONNECT/connectors/$CONNECTOR/status" | grep -q '"state":"STOPPED"'; do echo "waiting for STOPPED"; sleep 2; done
+
+# 2. Wait until ClickHouse has read everything, then stop Kafka Connect
+lag() { dc exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --all-groups 2>/dev/null \
+  | awk '$1 ~ /^clickhouse_raw_/ {n++; if ($6 ~ /^[0-9]+$/) s+=$6; else u++} END {print (!n ? "no-groups" : u ? "uncommitted" : s+0)}'; }
+until [ "$(lag)" = 0 ]; do echo "ClickHouse lag: $(lag)"; sleep 5; done
+dc stop kafka-connect
+
+# 3. Recreate only the broker, then reconnect ClickHouse and start Kafka Connect on it
+dc up -d --wait --no-deps kafka
+dc restart clickhouse                     # its Kafka consumers do not recover from the broker swap on their own
+dc up -d --wait --no-deps kafka-connect   # GET /connectors now returns []
+
+# 4. Re-attach from the slot, wait until the first offset is committed, return to the default snapshot mode
+DEBEZIUM_SNAPSHOT_MODE=no_data make register-connector
+until curl -s "$CONNECT/connectors/$CONNECTOR/offsets" | grep -q lsn; do echo "waiting for the first offset"; sleep 5; done
+make register-connector
+
+# 5. Start the rest (watchdog included) and check
+make up
+make verify-cdc verify-ingestion
+```
+
+`DEBEZIUM_SNAPSHOT_MODE=no_data` on the command line only takes effect if `.env` does not set `DEBEZIUM_SNAPSHOT_MODE`. Wait for the offset in step 4 before going back to the default mode: `when_needed` without a stored offset runs a full snapshot. If step 2 keeps printing a non-zero, `uncommitted` or `no-groups` lag, ClickHouse is not consuming: fix that first (`make recover`) or take the fallback below. Afterwards `ls /var/lib/kafka/data` in the `kafka` container lists the CDC topics and `/tmp` holds no Kafka logs.
+
+**Already ran `make up` and the connector is `UNASSIGNED`:** run `dc stop connect-watchdog kafka-connect`, delete the three topics `_connect-configs`, `_connect-offsets` and `_connect-status` (`dc exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic <name>`), then continue from step 3 with `dc restart clickhouse` and `dc up -d --wait --no-deps kafka-connect`. Changes written after the swap are kept by the slot unless it was invalidated (`wal_status = lost`); events ClickHouse had not consumed before the swap are gone. Run `make reconcile` afterwards and take the fallback if it reports a mismatch.
+
+**Fallback:** if the lag in step 2 cannot reach 0, the slot is lost or `make reconcile` disagrees, run a full re-snapshot with `FORCE=1 make recover-slot` ([runbook-slot-recovery.md](runbook-slot-recovery.md)), wait until the snapshot has finished and then run `make initial-dbt-build`. A throwaway environment can simply be recreated with `make reset`.
 
 ## Planned version upgrades
 
